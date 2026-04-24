@@ -25,6 +25,7 @@ model User {
   update_at DateTime @updatedAt
 
   roles UserHasRole[]
+  driverPosition DriverPosition?
 
   @@map("users")
 
@@ -53,4 +54,13 @@ model UserHasRole {
 
   @@id([id_user, id_rol])
   @@map("user_has_roles")
+}
+
+model DriverPosition {
+  id_driver Int @id
+  user User @relation(fields: [id_driver], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  position Unsupported("POINT")
+
+  @@map("drivers_position")
 }
