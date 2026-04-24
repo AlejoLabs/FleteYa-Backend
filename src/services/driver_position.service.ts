@@ -21,3 +21,34 @@ export const createDriverPosition = async (data: CreateDriverPositionInput) => {
 
     return data;
 }
+
+export const getDriverPosition = async (id_driver: number) => {
+    const result = await prisma.$queryRaw<Array<{id_driver: number, position: string}>>`
+        SELECT 
+            id_driver, 
+            ST_AsText(position) as position
+        FROM 
+            drivers_position
+        WHERE 
+            id_driver = ${id_driver}
+    `;
+    if(!result || result.length === 0) {
+        throw new AppError("El conductor no existe", 404);
+    }
+    const row = result[0];
+
+    const match = row?.position.match(/POINT\(([-\d.]+)\s+([-\d.]+)\)/);
+
+    if (!match) {
+        throw new AppError("Error al obtener la posición del conductor", 500);
+    }
+
+    const lng = parseFloat(match[1]!);
+    const lat = parseFloat(match[2]!);
+    return { 
+        id_driver: row?.id_driver,
+        lat: lat,
+        lng: lng,
+        
+    };
+}

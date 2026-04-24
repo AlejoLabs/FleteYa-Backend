@@ -14,3 +14,14 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
 
 }
 
+export const getDriverPosition = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id_driver = Number(req.params.id_driver);
+        const driverPosition = await driverPositionService.getDriverPosition(id_driver);
+        return res.status(200).json(driverPosition);
+    } catch (err) {
+        next(err);    
+    }
+
+}
+
