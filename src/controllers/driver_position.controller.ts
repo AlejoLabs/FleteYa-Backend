@@ -25,3 +25,15 @@ export const getDriverPosition = async (req: Request, res: Response, next: NextF
 
 }
 
+export const getNearbyDrivers = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const lat = Number(req.params.lat);
+        const lng = Number(req.params.lng);
+        const driverPositon = await driverPositionService.getNearbyDrivers(lat, lng);
+        return res.status(200).json(driverPositon);
+    } catch (err) {
+        next(err);    
+    }
+
+}
+

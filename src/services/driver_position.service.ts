@@ -14,16 +14,16 @@ export const createDriverPosition = async (data: CreateDriverPositionInput) => {
     await prisma.$executeRawUnsafe(`
         REPLACE INTO drivers_position (id_driver, position)
         VALUES (?, ST_GeomFromText(?, 4326))
-    `, 
-    data.id_driver, 
-    point
+    `,
+        data.id_driver,
+        point
     );
 
     return data;
 }
 
 export const getDriverPosition = async (id_driver: number) => {
-    const result = await prisma.$queryRaw<Array<{id_driver: number, position: string}>>`
+    const result = await prisma.$queryRaw<Array<{ id_driver: number, position: string }>>`
         SELECT 
             id_driver, 
             ST_AsText(position) as position
@@ -32,9 +32,10 @@ export const getDriverPosition = async (id_driver: number) => {
         WHERE 
             id_driver = ${id_driver}
     `;
-    if(!result || result.length === 0) {
+    if (!result || result.length === 0) {
         throw new AppError("El conductor no existe", 404);
     }
+
     const row = result[0];
 
     const match = row?.position.match(/POINT\(([-\d.]+)\s+([-\d.]+)\)/);
@@ -45,10 +46,44 @@ export const getDriverPosition = async (id_driver: number) => {
 
     const lng = parseFloat(match[1]!);
     const lat = parseFloat(match[2]!);
-    return { 
+    return {
         id_driver: row?.id_driver,
         lat: lat,
         lng: lng,
-        
     };
+}
+
+export const getNearbyDrivers = async (lat: number, lng: number) => {
+    const result = await prisma.$queryRaw<Array<{ id_driver: number, position: string, distance: number }>>`
+        SELECT
+	        id_driver,
+            ST_AsText (position) AS position,
+            ST_Distance_Sphere(position, ST_GeomFromText(CONCAT("POINT(", ${lng}, " ", ${lat}, ")"), 4326)) AS distance
+        FROM
+	        drivers_position
+        HAVING
+	        distance < 10000
+    `;
+    if (!result || result.length === 0) {
+        return [];
+    }
+
+    const response = [];
+
+    for (const row of result) {
+        const match = row?.position.match(/POINT\(([-\d.]+)\s+([-\d.]+)\)/);
+        if (!match) continue;
+
+        const driverLng = parseFloat(match[1]!);
+        const driverLat = parseFloat(match[2]!);
+        response.push({
+            id_driver: row.id_driver,
+            position: {
+                lat: driverLat,
+                lng: driverLng,
+            },
+            distance: Number(row.distance),
+        });
+    }
+    return response;
 }
