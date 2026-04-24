@@ -6,6 +6,8 @@ import authRouter from "./routes/auth.routes.js";
 import { errorHandler } from './middlewares/errorHandler.js';
 import path from "path";
 import { fileURLToPath } from 'url';
+import {initializeSocket} from "./sockets/socketHandler.js";
+import http from "http";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -26,9 +28,12 @@ app.get("/", (req, res)=>{
 app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
 app.use(errorHandler);
 
+const server = http.createServer(app);
+initializeSocket(server);
+
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "localhost";
 
-app.listen(Number (PORT), HOST, ()=>{
+server.listen(Number (PORT), HOST, ()=>{
     console.log(`Servidor corriendo EN http://${HOST}:${PORT}`);
 });
