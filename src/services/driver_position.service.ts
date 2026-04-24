@@ -87,3 +87,17 @@ export const getNearbyDrivers = async (lat: number, lng: number) => {
     }
     return response;
 }
+
+export const deleteDriverPosition = async (id_driver: number) => {
+    const driverPosition = await prisma.driverPosition.findUnique({ 
+        where: { id_driver } 
+    });
+
+    if (!driverPosition) {
+        throw new AppError("La posición del conductor no existe", 404);
+    }
+    
+    await prisma.driverPosition.delete({
+        where: { id_driver }
+    });
+}

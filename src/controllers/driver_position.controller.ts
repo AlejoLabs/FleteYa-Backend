@@ -37,3 +37,14 @@ export const getNearbyDrivers = async (req: Request, res: Response, next: NextFu
 
 }
 
+export const deleteDriverPosition = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id_driver = Number(req.params.id_driver);
+        await driverPositionService.deleteDriverPosition(id_driver);
+        return res.status(200).json(true);
+    } catch (err) {
+        next(err);    
+    }
+
+}
+
