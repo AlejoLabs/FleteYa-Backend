@@ -5,7 +5,11 @@ import { AppError } from "../utils/App.Error.js";
 
 export const getTimeAndDistance = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const data = await clientRequestService.getTimeAndDistance();
+        const originLat = Number(req.params.origin_lat);
+        const originLng = Number(req.params.origin_lng);
+        const destinationLat = Number(req.params.destination_lat);
+        const destinationLng = Number(req.params.destination_lng);
+        const data = await clientRequestService.getTimeAndDistance(originLat, originLng, destinationLat, destinationLng);
         return res.status(200).json(data);
     } catch (err) {
         next(err);    
