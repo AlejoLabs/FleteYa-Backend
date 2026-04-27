@@ -64,3 +64,13 @@ model DriverPosition {
 
   @@map("drivers_position")
 }
+
+model TimeAndDistanceValues {
+  id          Int   @id
+  km_value    Float
+  min_value   Float
+  weight_rate Float
+  size_rate   Float
+
+  @@map("time_and_distance_values")
+}
