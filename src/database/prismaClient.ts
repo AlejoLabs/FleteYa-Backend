@@ -8,7 +8,8 @@ const adapter = new PrismaMariaDb({
     user: "root",
     password: "password",
     database: "apirest_nodejs2",
-    connectionLimit: 10
+    connectionLimit: 10,
+    allowPublicKeyRetrieval: true
 });
 
 const prisma = new PrismaClient({adapter});
