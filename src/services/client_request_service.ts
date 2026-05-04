@@ -35,7 +35,7 @@ export const createClientRequest = async (data: CreateClientRequestInput) => {
             const [row] = await tx.$queryRaw<{ id: bigint }[]>`
             SELECT LAST_INSERT_ID() as id
         `;
-            return row?.id? Number(row.id) : null;
+            return row?.id ? Number(row.id) : null;
         })
 
         return result;
@@ -117,3 +117,60 @@ export const getTimeAndDistance = async (
     }
 
 }
+
+export const getNearbyClientRequests = async (driverLat: number, driverLng: number) => {
+    const data = await prisma.$queryRaw<any[]>`
+            SELECT
+                CR.id,
+                CR.id_client,
+                CR.fare_offered,
+                CR.destination_description,
+                CR.status,
+                CR.update_at,
+                JSON_OBJECT (
+                    "x", ST_X(pickup_position),
+                    "y", ST_Y(pickup_position)
+                
+                ) AS pickup_position,
+                JSON_OBJECT (
+                    "x", ST_X(destination_position),
+                    "y", ST_Y(destination_position)
+                
+                ) AS destination_position,
+                ST_Distance_Sphere(pickup_position, ST_GeomFromText(CONCAT('POINT(', ${driverLng}, ' ', ${driverLat}, ')'), 4326)) as distance,
+                timestampdiff(MINUTE, CR.update_at, NOW()) AS time_difference,
+                JSON_OBJECT(
+                    "name", U.name,
+                    "lastname", U.lastname,
+                    "phone", U.phone,
+                    "image", U.image
+                ) AS client
+            FROM
+                client_requests AS CR
+            INNER JOIN
+                users AS U
+            ON 
+                U.id = CR.id_client
+            WHERE
+                timestampdiff(MINUTE, CR.update_at, NOW()) < 60 AND status = "CREATED"
+            HAVING
+                distance < 10000
+    `;
+
+    if (!data.length) return [];
+    
+    const formatted = data.map((item) => ({
+        ...item,
+        client: {
+            ...item.client,
+            image: item.client.image ? `http://${process.env.HOST}:${process.env.PORT}${item.client.image}` : null
+        }
+    }))
+
+
+    return normalizeBigInt(formatted);
+}
+
+const normalizeBigInt = (obj: any): any => JSON.parse(
+    JSON.stringify(obj,(_, value) => typeof value === "bigint" ? Number(value) : value)
+);

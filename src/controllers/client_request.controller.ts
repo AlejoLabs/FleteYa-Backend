@@ -14,6 +14,18 @@ export const createClientRequest = async (req: Request, res: Response, next: Nex
 
 }
 
+export const getNearbyClientRequests = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const driverLat = Number(req.params.driver_lat);
+        const driverLng = Number(req.params.driver_lng);
+        const result = await clientRequestService.getNearbyClientRequests(driverLat, driverLng);
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);    
+    }
+
+}
+
 export const getTimeAndDistance = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const originLat = Number(req.params.origin_lat);
