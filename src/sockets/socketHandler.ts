@@ -32,6 +32,16 @@ export const initializeSocket = (server: HttpServer) => {
             io.emit("new_driver_position", position);
         });
 
+        socket.on("new_client_request", (data: any) => {
+            const clientRequest = {
+                "id_socket": socket.id,
+                "id_client_request": typeof data === "string" ? JSON.parse(data || "{}").id_client_request : data?.id_client_request,
+            }
+
+            console.log("Nueva solicitud de cliente:", clientRequest);
+            io.emit("created_client_request", clientRequest);
+        });
+
         socket.on("disconnect", () => {
             console.log(`Cliente desconectado`);
             io.emit("driver_disconnected", { id_socket: socket.id });
