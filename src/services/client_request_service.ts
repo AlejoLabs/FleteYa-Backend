@@ -1,6 +1,49 @@
 import axios from "axios";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
+import type { CreateClientRequestInput } from "../validators/client_request.validator.js";
+
+export const createClientRequest = async (data: CreateClientRequestInput) => {
+
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`
+            INSERT INTO client_requests (
+                id_client,
+                fare_offered,
+                pickup_position,
+                destination_position,
+                pickup_description,
+                destination_description,
+                status,
+                created_at,
+                update_at
+            )
+            VALUES (
+                ${data.id_client},
+                ${data.fare_offered},
+                ST_GeomFromText(CONCAT('POINT(', ${data.pickup_lng}, ' ', ${data.pickup_lat}, ')'), 4326),
+                ST_GeomFromText(CONCAT('POINT(', ${data.destination_lng}, ' ', ${data.destination_lat}, ')'), 4326),
+                ${data.pickup_description},
+                ${data.destination_description},
+                'CREATED',
+                NOW(),
+                NOW()
+            )
+        `;
+
+            const [row] = await tx.$queryRaw<{ id: bigint }[]>`
+            SELECT LAST_INSERT_ID() as id
+        `;
+            return row?.id? Number(row.id) : null;
+        })
+
+        return result;
+    } catch (e) {
+        throw new AppError(`Error al crear la solicitud de viaje: ${e}`, 500);
+    }
+
+}
 
 export const getTimeAndDistance = async (
     originLat: number,
@@ -35,7 +78,7 @@ export const getTimeAndDistance = async (
 
     const element = body.rows?.[0]?.elements?.[0];
 
-     if (!element || element.status !== "OK") {
+    if (!element || element.status !== "OK") {
         throw new AppError(`No se puede calcular la distancia y el tiempo`, 500);
     }
 
@@ -53,14 +96,14 @@ export const getTimeAndDistance = async (
         throw new AppError("Valores de la tarifa no configurados", 500);
     }
 
-    const recommendedValue = 
-    (values.km_value * km)
-    + (values.min_value * min)
-    + (values.weight_rate * 70)
-    + (values.size_rate * 0.36);
+    const recommendedValue =
+        (values.km_value * km)
+        + (values.min_value * min)
+        + (values.weight_rate * 70)
+        + (values.size_rate * 0.36);
 
     return {
-        distance:{
+        distance: {
             text: element.distance.text,
             value: km
         },
@@ -72,5 +115,5 @@ export const getTimeAndDistance = async (
         destination_address: body.destination_addresses?.[0] || "",
         recommended_value: recommendedValue
     }
-    
+
 }
