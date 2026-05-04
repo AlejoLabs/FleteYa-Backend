@@ -158,14 +158,47 @@ export const getNearbyClientRequests = async (driverLat: number, driverLng: numb
     `;
 
     if (!data.length) return [];
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    const url = "https://maps.googleapis.com/maps/api/distancematrix/json";
+
+    let response;
+
+    try {
+        response = await axios.get(url, {
+            params: {
+                origins: `${driverLat},${driverLng}`,
+                destinations: data.map(item => {
+                    return `${item.pickup_position.y},${item.pickup_position.x}`
+                }).join("|"),
+                unit: "metric",
+                key: apiKey
+            }
+        });
+    } catch (err) {
+        throw new AppError("Error al conectar con la API de Google Distance", 500);
+    }
+
+    const body = response.data;
+
+    if (body.status !== "OK") {
+        throw new AppError(`Respuesta no válida del API de Google Distance: ${body.status}`, 500);
+    }
+
+    const elements = body.rows?.[0]?.elements;
     
-    const formatted = data.map((item) => ({
+    const formatted = data.map((item, index) => ({
         ...item,
         client: {
             ...item.client,
             image: item.client.image ? `http://${process.env.HOST}:${process.env.PORT}${item.client.image}` : null
+        },
+        google_distance_matrix: {
+            status: elements[index]?.status ?? null,
+            distance: elements[index]?.distance ?? null,
+            duration: elements[index]?.duration ?? null
         }
-    }))
+    }));
 
 
     return normalizeBigInt(formatted);
