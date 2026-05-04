@@ -27,6 +27,10 @@ model User {
   roles UserHasRole[]
   driverPosition DriverPosition?
 
+
+  client ClientRequests[] @relation("client")
+  driver ClientRequests[] @relation("driver")
+
   @@map("users")
 
 }
@@ -73,4 +77,45 @@ model TimeAndDistanceValues {
   size_rate   Float
 
   @@map("time_and_distance_values")
+}
+
+model ClientRequests {
+  id Int @id @default(autoincrement())
+
+  id_client Int
+  id_driver_assigned Int?
+
+  client User @relation("client", fields: [id_client], references: [id])
+  driver User? @relation("driver", fields: [id_driver_assigned], references: [id])
+
+  fare_offered Float
+  fare_assigned Float?
+
+  client_rating Float?
+  driver_rating Float?
+
+  pickup_description String @db.VarChar(255)
+  destination_description String @db.VarChar(255)
+  cargo_description String? @db.VarChar(255)
+
+  pickup_position Unsupported("POINT")
+  destination_position Unsupported("POINT")
+
+  status ClientRequestStatus @default(CREATED)
+
+  created_at DateTime @default(now())
+  update_at DateTime @updatedAt
+
+  @@map("client_requests")
+  
+}
+
+enum ClientRequestStatus {
+  CREATED
+  ACCEPTED
+  ON_THE_WAY
+  ARRIVED
+  TRAVELING
+  FINISHED
+  CANCELED
 }
