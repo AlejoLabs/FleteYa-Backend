@@ -5,6 +5,7 @@ import usersRouter from "./routes/user.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import clientRequestRouter from "./routes/client_request.routes.js";
 import driverPositionRouter from "./routes/driver_position.routes.js";
+import driverTripOfferRouter from "./routes/driver_trip_offer.routes.js";
 import { errorHandler } from './middlewares/errorHandler.js';
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -24,6 +25,7 @@ app.use("/users", usersRouter);
 app.use("/auth", authRouter);
 app.use("/drivers-position", driverPositionRouter);
 app.use("/client-requests", clientRequestRouter);
+app.use("/driver-trip-offers", driverTripOfferRouter);
 app.get("/", (req, res)=>{
     res.json({
         message: "Bienvenido a la API con Node.JS"
