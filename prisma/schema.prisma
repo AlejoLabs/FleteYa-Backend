@@ -30,6 +30,7 @@ model User {
 
   client ClientRequests[] @relation("client")
   driver ClientRequests[] @relation("driver")
+  driverTripOffers DriverTripOffer[] @relation("DriverTripOffers")
 
   @@map("users")
 
@@ -106,6 +107,8 @@ model ClientRequests {
   created_at DateTime @default(now())
   update_at DateTime @updatedAt
 
+  driverTripOffers DriverTripOffer[]
+
   @@map("client_requests")
   
 }
@@ -118,4 +121,23 @@ enum ClientRequestStatus {
   TRAVELING
   FINISHED
   CANCELED
+}
+
+model DriverTripOffer {
+  id Int @id @default(autoincrement())
+
+  id_driver Int
+  id_client_request Int
+
+  fare_offered Float
+  time Float
+  distance Float
+
+  created_at DateTime @default(now())
+  update_at DateTime @updatedAt
+  
+  driver User @relation("DriverTripOffers", fields: [id_driver], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  client_request ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("driver_trip_offers")
 }

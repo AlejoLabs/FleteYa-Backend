@@ -124,6 +124,7 @@ export const getNearbyClientRequests = async (driverLat: number, driverLng: numb
                 CR.id,
                 CR.id_client,
                 CR.fare_offered,
+                CR.pickup_description,
                 CR.destination_description,
                 CR.status,
                 CR.update_at,
