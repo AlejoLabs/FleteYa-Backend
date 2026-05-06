@@ -1,5 +1,5 @@
 import {Server, Socket} from "socket.io";
-import{Server as HttpServer} from "http";
+import{ClientRequest, Server as HttpServer} from "http"    ;
 import { AppError } from "../utils/App.Error.js";
 
 let io: Server;
@@ -14,6 +14,7 @@ export const initializeSocket = (server: HttpServer) => {
 
     io.on("connection", (socket: Socket) => {
         console.log(`Cliente conectado: ${socket.id}`);
+        let clientRequest: any = null;
 
         socket.on("message", (data) => {
             console.log(`Mensaje recibido: ${data}`);
@@ -33,13 +34,23 @@ export const initializeSocket = (server: HttpServer) => {
         });
 
         socket.on("new_client_request", (data: any) => {
-            const clientRequest = {
+           const clientRequest = {
                 "id_socket": socket.id,
                 "id_client_request": typeof data === "string" ? JSON.parse(data || "{}").id_client_request : data?.id_client_request,
             }
 
             console.log("Nueva solicitud de cliente:", clientRequest);
             io.emit("created_client_request", clientRequest);
+        });
+
+        socket.on("new_driver_offer", (data: any) => {
+            const clientRequest = {
+                "id_socket": socket.id,
+                "id_client_request": typeof data === "string" ? JSON.parse(data || "{}").id_client_request : data?.id_client_request,
+            }
+
+            console.log("Nueva oferta de conductor:", clientRequest);
+            io.emit(`created_driver_offer/${clientRequest.id_client_request}`, clientRequest);
         });
 
         socket.on("disconnect", () => {
