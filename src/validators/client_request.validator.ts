@@ -1,3 +1,4 @@
+import e from "express";
 import {z} from "zod";
 
 export const createClientRequestSchema = z.object({
@@ -11,4 +12,12 @@ export const createClientRequestSchema = z.object({
     destination_description: z.string().min(2, {message: "La descripción de destino es obligatoria"}),
 });
 
+export const assignDriverSchema = z.object({
+    id: z.coerce.number().refine((val) => val > 0, {message: "El id de la solicitud de cliente es obligatorio"}),
+    fare_assigned: z.coerce.number().refine((val) => val > 0, {message: "La tarifa asignada es obligatoria"}),
+    id_driver_assigned: z.coerce.number().refine((val) => val > 0, {message: "El id del conductor asignado es obligatorio"}),
+    
+});
+
 export type CreateClientRequestInput = z.infer<typeof createClientRequestSchema>;
+export type AssignDriverInput = z.infer<typeof assignDriverSchema>;

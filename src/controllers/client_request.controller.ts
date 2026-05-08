@@ -14,6 +14,17 @@ export const createClientRequest = async (req: Request, res: Response, next: Nex
 
 }
 
+export const assignDriver = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const body = req.body;
+        const data = await clientRequestService.assignDriver(body);
+        return res.status(200).json(data);
+    } catch (err) {
+        next(err);    
+    }
+
+}
+
 export const getNearbyClientRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const driverLat = Number(req.params.driver_lat);
