@@ -53,6 +53,17 @@ export const initializeSocket = (server: HttpServer) => {
             io.emit(`created_driver_offer/${clientRequest.id_client_request}`, clientRequest);
         });
 
+        socket.on("new_driver_assigned", (data: any) => {
+            const clientRequest = {
+                "id_socket": socket.id,
+                "id_client_request": typeof data === "string" ? JSON.parse(data || "{}").id_client_request : data?.id_client_request,
+                "id_driver": typeof data === "string" ? JSON.parse(data || "{}").id_driver : data?.id_driver
+            }
+
+            console.log("Nuevo conductor asignado:", clientRequest);
+            io.emit(`driver_assigned/${clientRequest.id_driver}`, clientRequest);
+        });
+
         socket.on("disconnect", () => {
             console.log(`Cliente desconectado`);
             io.emit("driver_disconnected", { id_socket: socket.id });
