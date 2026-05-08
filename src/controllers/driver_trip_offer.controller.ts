@@ -13,3 +13,14 @@ export const createDriverTripOffer = async (req: Request, res: Response, next: N
     }
 
 }
+
+export const getByClientRequest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id_client_request = Number(req.params.id_client_request);
+        const result = await driverTripOfferService.getByClientRequest(id_client_request);
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);    
+    }
+
+}
