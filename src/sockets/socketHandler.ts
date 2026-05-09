@@ -64,6 +64,18 @@ export const initializeSocket = (server: HttpServer) => {
             io.emit(`driver_assigned/${clientRequest.id_driver}`, clientRequest);
         });
 
+        socket.on("trip_change_driver_position", (data: any) => {
+            const payload = typeof data === "string" ? JSON.parse(data || "{}") : data;
+            const driverPosition = {
+                "id_socket": socket.id,
+                "lat": payload?.lat,
+                "lng": payload?.lng
+            }
+
+            console.log("Nuevo posicion del conductor asignado: ", driverPosition);
+            io.emit(`trip_new_driver_position/${payload?.id_client}`, driverPosition);
+        });
+
         socket.on("disconnect", () => {
             console.log(`Cliente desconectado`);
             io.emit("driver_disconnected", { id_socket: socket.id });
