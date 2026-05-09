@@ -57,6 +57,7 @@ export const assignDriver = async (data: AssignDriverInput) => {
         where: { id: data.id },
         data: {
             id_driver_assigned: data.id_driver_assigned,
+            status: "ACCEPTED",
             fare_assigned: data.fare_assigned,
         }
     });
@@ -221,6 +222,83 @@ export const getNearbyClientRequests = async (driverLat: number, driverLng: numb
 
 
     return normalizeBigInt(formatted);
+}
+
+export const getByClientRequest = async (id: number) => {
+    const data = await prisma.$queryRaw<any[]>`
+            SELECT
+                CR.id,
+                CR.id_client,
+                CR.id_driver_assigned,
+                CR.fare_offered,
+                CR.fare_assigned,
+                CR.pickup_description,
+                CR.destination_description,
+                CR.status,
+                CR.update_at,
+                JSON_OBJECT (
+                    "x", ST_X(pickup_position),
+                    "y", ST_Y(pickup_position)
+                
+                ) AS pickup_position,
+                JSON_OBJECT (
+                    "x", ST_X(destination_position),
+                    "y", ST_Y(destination_position)
+                
+                ) AS destination_position,
+                JSON_OBJECT(
+                    "name", U.name,
+                    "lastname", U.lastname,
+                    "phone", U.phone,
+                    "image", U.image
+                ) AS client,
+                JSON_OBJECT(
+                    "name", D.name,
+                    "lastname", D.lastname,
+                    "phone", D.phone,
+                    "image", D.image
+                ) AS driver,
+                JSON_OBJECT(
+                    "brand", DCI.brand,
+                    "color", DCI.color,
+                    "plate", DCI.plate
+                ) AS car
+            FROM
+                client_requests AS CR
+            INNER JOIN
+                users AS U
+            ON 
+                U.id = CR.id_client
+            LEFT JOIN
+                users AS D
+            ON 
+                D.id = CR.id_driver_assigned
+            LEFT JOIN
+                driver_car_info AS DCI
+            ON
+                DCI.id_driver = CR.id_driver_assigned
+            WHERE
+                CR.id = ${id} AND CR.status = "ACCEPTED"
+           
+    `;
+
+    if (!data.length) return [];
+
+    
+    const formatted = data.map((item, index) => ({
+        ...item,
+        client: {
+            ...item.client,
+            image: item.client.image ? `http://${process.env.HOST}:${process.env.PORT}${item.client.image}` : null
+        },
+        driver: {
+            ...item.driver,
+            image: item.driver.image ? `http://${process.env.HOST}:${process.env.PORT}${item.driver.image}` : null
+        }
+    }));
+
+
+    return normalizeBigInt(formatted[0]);
 }
 
 const normalizeBigInt = (obj: any): any => JSON.parse(

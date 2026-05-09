@@ -37,6 +37,17 @@ export const getNearbyClientRequests = async (req: Request, res: Response, next:
 
 }
 
+export const getByClientRequest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id = Number(req.params.id);
+        const result = await clientRequestService.getByClientRequest(id);
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);    
+    }
+
+}
+
 export const getTimeAndDistance = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const originLat = Number(req.params.origin_lat);
