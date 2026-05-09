@@ -31,6 +31,7 @@ model User {
   client ClientRequests[] @relation("client")
   driver ClientRequests[] @relation("driver")
   driverTripOffers DriverTripOffer[] @relation("DriverTripOffers")
+  driverCarInfo DriverCarInfo?
 
   @@map("users")
 
@@ -140,4 +141,20 @@ model DriverTripOffer {
   client_request ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("driver_trip_offers")
+}
+
+model DriverCarInfo {
+
+  id_driver Int @id
+  brand String @db.VarChar(50)
+  color String @db.VarChar(50)
+  plate String @db.VarChar(20)
+
+  driver User @relation( fields: [id_driver], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  created_at DateTime @default(now())
+  update_at DateTime @updatedAt
+
+  @@map("driver_car_info")
+
 }
