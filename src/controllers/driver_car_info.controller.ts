@@ -13,3 +13,13 @@ export const createDriverCarInfo = async (req: Request, res: Response, next: Nex
     }
 
 }
+
+export const getByDriver = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const  idDriver = Number(req.params.id_driver);
+        const driverCarInfo = await driverCarInfoService.getByDriver(idDriver);
+        return res.status(200).json(driverCarInfo);
+    } catch (err) {
+        next(err);    
+    }
+}
