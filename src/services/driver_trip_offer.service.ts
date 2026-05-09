@@ -20,7 +20,11 @@ export const getByClientRequest = async (idClientRequest: number) => {
     const offers = await prisma.driverTripOffer.findMany({
         where: { id_client_request: idClientRequest },
         include: {
-            driver: {}
+            driver: {
+                include: {
+                    driverCarInfo: true
+                }
+            }
         }
     });
     return offers.map((offer) => ({
@@ -38,6 +42,13 @@ export const getByClientRequest = async (idClientRequest: number) => {
             lastname: offer.driver.lastname,
             phone: offer.driver.phone,
             image: offer.driver.image ? `http://${process.env.HOST}:${process.env.PORT}${offer.driver.image}` : null,
+        } : null,
+        car: offer.driver.driverCarInfo ? {
+            id: offer.driver.id,
+            brand: offer.driver.driverCarInfo.brand,
+            color: offer.driver.driverCarInfo.color,
+            plate: offer.driver.driverCarInfo.plate
+
         } : null
     }));
 }
