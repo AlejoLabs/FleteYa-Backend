@@ -1,7 +1,9 @@
 import axios from "axios";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
-import type { AssignDriverInput, CreateClientRequestInput } from "../validators/client_request.validator.js";
+import type { AssignDriverInput, CreateClientRequestInput, UpdateClientRequestInput } from "../validators/client_request.validator.js";
+import type { ClientRequest } from "node:http";
+import type { ClientRequestStatus } from "../generated/prisma/enums.js";
 
 export const createClientRequest = async (data: CreateClientRequestInput) => {
 
@@ -62,6 +64,24 @@ export const assignDriver = async (data: AssignDriverInput) => {
         }
     });
     return updatedDriverAssigned;
+}
+
+export const updateStatus = async (data: UpdateClientRequestInput) => {
+    const clientRequest = await prisma.clientRequests.findUnique({
+        where: { id: data.id }
+    });
+
+    if (!clientRequest) {
+        throw new AppError("La solicitud de cliente no existe", 404);
+    }
+
+    const updatedClientRequest = await prisma.clientRequests.update({
+        where: { id: data.id },
+        data: {
+            status: data.status as ClientRequestStatus,
+        }
+    });
+    return updatedClientRequest;
 }
 
 export const getTimeAndDistance = async (

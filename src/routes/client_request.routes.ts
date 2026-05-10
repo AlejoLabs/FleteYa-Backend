@@ -1,5 +1,5 @@
 import express from "express";
-import { getTimeAndDistance, createClientRequest, getNearbyClientRequests, assignDriver, getByClientRequest } from "../controllers/client_request.controller.js";
+import { getTimeAndDistance, createClientRequest, getNearbyClientRequests, assignDriver, getByClientRequest, updateClientRequest } from "../controllers/client_request.controller.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { validateBody } from "../middlewares/validateBody.js";
 import { createClientRequestSchema } from "../validators/client_request.validator.js";
@@ -13,5 +13,6 @@ router.post("/", authMiddleware, validateBody(createClientRequestSchema), create
 router.get("/:driver_lat/:driver_lng", authMiddleware, getNearbyClientRequests);
 router.get("/:id", authMiddleware, getByClientRequest);
 router.put("/updateDriverAssigned", authMiddleware, assignDriver);
+router.put("/update_status", authMiddleware, updateClientRequest);
 
 export default router;

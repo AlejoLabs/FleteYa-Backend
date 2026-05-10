@@ -19,5 +19,11 @@ export const assignDriverSchema = z.object({
     
 });
 
+export const updateClientRequestSchema = z.object({
+    id: z.coerce.number().refine((val) => val > 0, {message: "El id de la solicitud de cliente es obligatorio"}),
+    status: z.string().min(2, {message: "El estado del viaje es obligatorio"}), 
+});
+
 export type CreateClientRequestInput = z.infer<typeof createClientRequestSchema>;
 export type AssignDriverInput = z.infer<typeof assignDriverSchema>;
+export type UpdateClientRequestInput = z.infer<typeof updateClientRequestSchema>;
