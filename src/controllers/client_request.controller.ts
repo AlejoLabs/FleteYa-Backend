@@ -79,6 +79,26 @@ export const getByClientRequest = async (req: Request, res: Response, next: Next
 
 }
 
+export const getByClientAssigned = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id_client = Number(req.params.id_client);
+        const result = await clientRequestService.getByClientAssigned(id_client);
+        return res.status(200).json(result);
+    } catch(err) {
+        next(err);
+    }
+}
+
+export const getByDriverAssigned = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id_driver_assigned = Number(req.params.id_driver_assigned);
+        const result = await clientRequestService.getByDriverAssigned(id_driver_assigned);
+        return res.status(200).json(result);
+    } catch(err) {
+        next(err);
+    }
+}
+
 export const getTimeAndDistance = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const originLat = Number(req.params.origin_lat);

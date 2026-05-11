@@ -1,5 +1,5 @@
 import express from "express";
-import { getTimeAndDistance, createClientRequest, getNearbyClientRequests, assignDriver, getByClientRequest, updateClientRequest, updateClientRating, updateDriverRating } from "../controllers/client_request.controller.js";
+import { getTimeAndDistance, createClientRequest, getNearbyClientRequests, assignDriver, getByClientRequest, updateClientRequest, updateClientRating, updateDriverRating, getByDriverAssigned, getByClientAssigned } from "../controllers/client_request.controller.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { validateBody } from "../middlewares/validateBody.js";
 import { createClientRequestSchema } from "../validators/client_request.validator.js";
@@ -16,5 +16,7 @@ router.put("/updateDriverAssigned", authMiddleware, assignDriver);
 router.put("/update_client_rating", authMiddleware, updateClientRating);
 router.put("/update_driver_rating", authMiddleware, updateDriverRating);
 router.put("/update_status", authMiddleware, updateClientRequest);
+router.get("/client/assigned/:id_client", authMiddleware, getByClientAssigned);
+router.get("/driver/assigned/:id_driver_assigned", authMiddleware, getByDriverAssigned);
 
 export default router;
