@@ -126,7 +126,9 @@ export const getTimeAndDistance = async (
     originLat: number,
     originLng: number,
     destinationLat: number,
-    destinationLng: number
+    destinationLng: number,
+    weight: number,
+    size: number
 ) => {
 
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -176,8 +178,8 @@ export const getTimeAndDistance = async (
     const recommendedValue =
         (values.km_value * km)
         + (values.min_value * min)
-        + (values.weight_rate * 70)
-        + (values.size_rate * 0.36);
+        + (values.weight_rate * weight)
+        + (values.size_rate * size);
 
     return {
         distance: {

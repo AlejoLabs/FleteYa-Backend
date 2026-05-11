@@ -105,7 +105,25 @@ export const getTimeAndDistance = async (req: Request, res: Response, next: Next
         const originLng = Number(req.params.origin_lng);
         const destinationLat = Number(req.params.destination_lat);
         const destinationLng = Number(req.params.destination_lng);
-        const data = await clientRequestService.getTimeAndDistance(originLat, originLng, destinationLat, destinationLng);
+        const weight = Number(req.query.weight);
+        const size = Number(req.query.size);
+
+        if (!Number.isFinite(weight) || weight <= 0) {
+            throw new AppError("El peso (weight) es obligatorio y debe ser mayor a 0", 400);
+        }
+
+        if (!Number.isFinite(size) || size <= 0) {
+            throw new AppError("El tamaño (size) es obligatorio y debe ser mayor a 0", 400);
+        }
+
+        const data = await clientRequestService.getTimeAndDistance(
+            originLat,
+            originLng,
+            destinationLat,
+            destinationLng,
+            weight,
+            size
+        );
         return res.status(200).json(data);
     } catch (err) {
         next(err);    

@@ -100,6 +100,11 @@ model ClientRequests {
   destination_description String @db.VarChar(255)
   cargo_description String? @db.VarChar(255)
 
+  weight_kg Float?
+  height_cm Float?
+  width_cm  Float?
+  length_cm Float?
+
   pickup_position Unsupported("POINT")
   destination_position Unsupported("POINT")
 
@@ -111,7 +116,6 @@ model ClientRequests {
   driverTripOffers DriverTripOffer[]
 
   @@map("client_requests")
-  
 }
 
 enum ClientRequestStatus {
