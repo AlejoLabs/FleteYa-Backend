@@ -10,6 +10,11 @@ export const createClientRequestSchema = z.object({
     fare_offered: z.coerce.number().refine((val) => val > 0, {message: "La tarifa del viaje es obligatoria"}),
     pickup_description: z.string().min(2, {message: "La descripción de recogida es obligatoria"}),
     destination_description: z.string().min(2, {message: "La descripción de destino es obligatoria"}),
+    cargo_description: z.string().max(255, {message: "La descripción de carga no puede superar 255 caracteres"}).optional(),
+    weight_kg: z.coerce.number().refine((val) => val > 0, {message: "El peso debe ser mayor a 0"}).optional(),
+    height_cm: z.coerce.number().refine((val) => val > 0, {message: "La altura debe ser mayor a 0"}).optional(),
+    width_cm: z.coerce.number().refine((val) => val > 0, {message: "El ancho debe ser mayor a 0"}).optional(),
+    length_cm: z.coerce.number().refine((val) => val > 0, {message: "El largo debe ser mayor a 0"}).optional(),
 });
 
 export const assignDriverSchema = z.object({

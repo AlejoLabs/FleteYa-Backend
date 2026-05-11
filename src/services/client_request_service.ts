@@ -17,6 +17,11 @@ export const createClientRequest = async (data: CreateClientRequestInput) => {
                 destination_position,
                 pickup_description,
                 destination_description,
+                cargo_description,
+                weight_kg,
+                height_cm,
+                width_cm,
+                length_cm,
                 status,
                 created_at,
                 update_at
@@ -28,6 +33,11 @@ export const createClientRequest = async (data: CreateClientRequestInput) => {
                 ST_GeomFromText(CONCAT('POINT(', ${data.destination_lng}, ' ', ${data.destination_lat}, ')'), 4326),
                 ${data.pickup_description},
                 ${data.destination_description},
+                ${data.cargo_description ?? null},
+                ${data.weight_kg ?? null},
+                ${data.height_cm ?? null},
+                ${data.width_cm ?? null},
+                ${data.length_cm ?? null},
                 'CREATED',
                 NOW(),
                 NOW()
@@ -209,6 +219,11 @@ export const getNearbyClientRequests = async (driverLat: number, driverLng: numb
                 CR.update_at,
                 CR.client_rating,
                 CR.driver_rating,
+                CR.cargo_description,
+                CR.weight_kg,
+                CR.height_cm,
+                CR.width_cm,
+                CR.length_cm,
                 JSON_OBJECT (
                     "x", ST_X(pickup_position),
                     "y", ST_Y(pickup_position)
@@ -296,6 +311,11 @@ export const getByClientRequest = async (id: number) => {
                 CR.fare_assigned,
                 CR.pickup_description,
                 CR.destination_description,
+                CR.cargo_description,
+                CR.weight_kg,
+                CR.height_cm,
+                CR.width_cm,
+                CR.length_cm,
                 CR.status,
                 CR.update_at,
                 JSON_OBJECT (
