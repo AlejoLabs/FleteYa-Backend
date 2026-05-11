@@ -76,6 +76,18 @@ export const initializeSocket = (server: HttpServer) => {
             io.emit(`trip_new_driver_position/${payload?.id_client}`, driverPosition);
         });
 
+        socket.on("update_status_trip", (data: any) => {
+            const payload = typeof data === "string" ? JSON.parse((data || "{}").replace(/,\s*([}\]])/g, "$1")) : data;
+            const clientRequest = {
+                "id_socket": socket.id,
+                "id_client_request": payload?.id_client_request,
+                "status": payload?.status
+            }
+
+            console.log("Viaje actualizado: ", clientRequest);
+            io.emit(`new_status_trip/${clientRequest.id_client_request}`, clientRequest);
+        });
+
         socket.on("disconnect", () => {
             console.log(`Cliente desconectado`);
             io.emit("driver_disconnected", { id_socket: socket.id });
