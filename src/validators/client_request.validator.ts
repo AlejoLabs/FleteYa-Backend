@@ -24,6 +24,19 @@ export const updateClientRequestSchema = z.object({
     status: z.string().min(2, {message: "El estado del viaje es obligatorio"}), 
 });
 
+export const updateClientRatingSchema = z.object({
+    id: z.coerce.number().refine((val) => val > 0, {message: "El id de la solicitud es obligatorio"}),
+    client_rating: z.coerce.number().refine((val) => val > 0, {message: "La calificacion del cliente es obligatoria"}),
+});
+
+export const updateDriverRatingSchema = z.object({
+    id: z.coerce.number().refine((val) => val > 0, {message: "El id de la solicitud es obligatorio"}),
+    driver_rating: z.coerce.number().refine((val) => val > 0, {message: "La calificacion del conductor es obligatoria"}),
+});
+
+
 export type CreateClientRequestInput = z.infer<typeof createClientRequestSchema>;
 export type AssignDriverInput = z.infer<typeof assignDriverSchema>;
 export type UpdateClientRequestInput = z.infer<typeof updateClientRequestSchema>;
+export type UpdateClientRatingInput = z.infer<typeof updateClientRatingSchema>;
+export type UpdateDriverRatingInput = z.infer<typeof updateDriverRatingSchema>;

@@ -1,7 +1,7 @@
 import axios from "axios";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
-import type { AssignDriverInput, CreateClientRequestInput, UpdateClientRequestInput } from "../validators/client_request.validator.js";
+import type { AssignDriverInput, CreateClientRequestInput, UpdateClientRatingInput, UpdateClientRequestInput, UpdateDriverRatingInput } from "../validators/client_request.validator.js";
 import type { ClientRequest } from "node:http";
 import type { ClientRequestStatus } from "../generated/prisma/enums.js";
 
@@ -81,6 +81,44 @@ export const updateStatus = async (data: UpdateClientRequestInput) => {
             status: data.status as ClientRequestStatus,
         }
     });
+    return updatedClientRequest;
+}
+
+export const updateClientRating = async (data: UpdateClientRatingInput) => {
+    const clientRequest = await prisma.clientRequests.findUnique({
+        where: { id: data.id }
+    });
+
+    if (!clientRequest) {
+        throw new AppError(`La solicitud de viaje no existe`, 404);
+    }
+
+    const updatedClientRequest = await prisma.clientRequests.update({
+        where: { id: data.id },
+        data: {
+            client_rating: data.client_rating
+        }
+    });
+
+    return updatedClientRequest;
+}
+
+export const updateDriverRating = async (data: UpdateDriverRatingInput) => {
+    const clientRequest = await prisma.clientRequests.findUnique({
+        where: { id: data.id }
+    });
+
+    if (!clientRequest) {
+        throw new AppError(`La solicitud de viaje no existe`, 404);
+    }
+
+    const updatedClientRequest = await prisma.clientRequests.update({
+        where: { id: data.id },
+        data: {
+            driver_rating: data.driver_rating
+        }
+    });
+
     return updatedClientRequest;
 }
 
@@ -167,6 +205,8 @@ export const getNearbyClientRequests = async (driverLat: number, driverLng: numb
                 CR.destination_description,
                 CR.status,
                 CR.update_at,
+                CR.client_rating,
+                CR.driver_rating,
                 JSON_OBJECT (
                     "x", ST_X(pickup_position),
                     "y", ST_Y(pickup_position)
@@ -226,7 +266,7 @@ export const getNearbyClientRequests = async (driverLat: number, driverLng: numb
     }
 
     const elements = body.rows?.[0]?.elements;
-    
+
     const formatted = data.map((item, index) => ({
         ...item,
         client: {
@@ -304,7 +344,7 @@ export const getByClientRequest = async (id: number) => {
 
     if (!data.length) return [];
 
-    
+
     const formatted = data.map((item, index) => ({
         ...item,
         client: {
@@ -322,5 +362,5 @@ export const getByClientRequest = async (id: number) => {
 }
 
 const normalizeBigInt = (obj: any): any => JSON.parse(
-    JSON.stringify(obj,(_, value) => typeof value === "bigint" ? Number(value) : value)
+    JSON.stringify(obj, (_, value) => typeof value === "bigint" ? Number(value) : value)
 );

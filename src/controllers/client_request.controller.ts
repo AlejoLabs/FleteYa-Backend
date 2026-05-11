@@ -36,6 +36,26 @@ export const updateClientRequest = async (req: Request, res: Response, next: Nex
 
 }
 
+export const updateClientRating = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const body = req.body;
+        const result = await clientRequestService.updateClientRating(body);
+        return res.status(200).json(result);
+    } catch(err) {
+        next(err);
+    }
+}
+
+export const updateDriverRating = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const body = req.body;
+        const result = await clientRequestService.updateDriverRating(body);
+        return res.status(200).json(result);
+    } catch(err) {
+        next(err);
+    }
+}
+
 export const getNearbyClientRequests = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const driverLat = Number(req.params.driver_lat);
