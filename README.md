@@ -1,21 +1,6 @@
-# 🚛 Flete App - Backend
+# API REST con Node.js
 
-API REST para aplicación de transporte de carga en Colombia, inspirada en el modelo InDriver. Conecta clientes que necesitan transportar carga con conductores disponibles en tiempo real.
-
-![Node.js](https://img.shields.io/badge/Node.js-18+-green)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![Prisma](https://img.shields.io/badge/Prisma-ORM-lightgrey)
-![Express](https://img.shields.io/badge/Express-5-black)
-
----
-
-## Características principales
-
-- 📍 Geolocalización en tiempo real con queries espaciales MySQL
-- 💰 Algoritmo de precio recomendado basado en distancia, peso y volumen
-- 🔔 Notificaciones en tiempo real con Socket.io
-- 🔐 Autenticación JWT con roles (cliente / conductor / admin)
-- 📦 Gestión de solicitudes de carga con sistema de ofertas
+API REST construida con **Node.js**, **Express**, **TypeScript**, **Prisma** y **Socket.io**. Incluye autenticación JWT, manejo de archivos con Multer y validaciones con Zod.
 
 ---
 
