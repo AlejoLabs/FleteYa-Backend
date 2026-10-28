@@ -12,6 +12,7 @@ import path from "path";
 import { fileURLToPath } from 'url';
 import {initializeSocket} from "./sockets/socketHandler.js";
 import http from "http";
+import { expireStaleRequests } from "./services/client_request_service.js";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -45,3 +46,9 @@ const HOST = process.env.HOST || "localhost";
 server.listen(Number (PORT), HOST, ()=>{
     console.log(`Servidor corriendo EN http://${HOST}:${PORT}`);
 });
+
+// Vence las búsquedas sin conductor. Un fallo (por ejemplo, la BD caída un momento) se registra y se reintenta en la siguiente vuelta
+const EXPIRE_EVERY_MS = 30 * 1000;
+setInterval(() => {
+    expireStaleRequests().catch((err) => console.error("[expiracion] error", err));
+}, EXPIRE_EVERY_MS);

@@ -58,12 +58,48 @@ export const getNearbyClientRequests = async (req: Request, res: Response, next:
     try {
         const driverLat = Number(req.params.driver_lat);
         const driverLng = Number(req.params.driver_lng);
-        const result = await clientRequestService.getNearbyClientRequests(driverLat, driverLng);
+        const result = await clientRequestService.getNearbyClientRequests(getUserId(req), driverLat, driverLng);
         return res.status(200).json(result);
     } catch (err) {
         next(err);
     }
 
+}
+
+export const raiseFare = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await clientRequestService.raiseFare(getUserId(req), Number(req.params.id), req.body);
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export const cancelClientRequest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await clientRequestService.cancelClientRequest(getUserId(req), Number(req.params.id), req.body);
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export const dismissClientRequest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await clientRequestService.dismissClientRequest(getUserId(req), Number(req.params.id));
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export const getMyActiveTrips = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await clientRequestService.getMyActiveTrips(getUserId(req));
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
 }
 
 export const getByClientRequest = async (req: Request, res: Response, next: NextFunction) => {

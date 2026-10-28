@@ -168,3 +168,13 @@ export const getIo = (): Server => {
     }
     return io;
 }
+
+// Avisos que emite el propio servidor después de guardar un cambio (rechazos, cancelaciones, vencimientos).
+// Si el socket no arrancó (por ejemplo, en un script) el aviso se omite: el cambio ya quedó en la BD
+export const notifyUser = (userId: number, event: string, payload: object) => {
+    io?.to(userRoom(userId)).emit(event, payload);
+}
+
+export const notifyDrivers = (event: string, payload: object) => {
+    io?.to(DRIVERS_ROOM).emit(event, payload);
+}

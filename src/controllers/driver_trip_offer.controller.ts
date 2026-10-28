@@ -14,6 +14,24 @@ export const createDriverTripOffer = async (req: Request, res: Response, next: N
 
 }
 
+export const rejectOffer = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await driverTripOfferService.rejectOffer(getUserId(req), Number(req.params.id));
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export const withdrawOffer = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await driverTripOfferService.withdrawOffer(getUserId(req), Number(req.params.id));
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
+}
+
 export const getByClientRequest = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id_client_request = Number(req.params.id_client_request);

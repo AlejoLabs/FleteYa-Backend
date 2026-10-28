@@ -32,6 +32,7 @@ model User {
   driver ClientRequests[] @relation("driver")
   driverTripOffers DriverTripOffer[] @relation("DriverTripOffers")
   driverCarInfo DriverCarInfo?
+  dismissedRequests DriverDismissedRequest[]
 
   @@map("users")
 
@@ -105,6 +106,35 @@ model ClientRequests {
   width_cm  Float?
   length_cm Float?
 
+  // Carga: categoría general, bultos y marcas de manejo
+  cargo_category CargoCategory @default(OTRO)
+  packages Int @default(1)
+  is_fragile Boolean @default(false)
+  needs_cover Boolean @default(false)
+
+  // Vehículo mínimo en el que cabe la carga; solo la ven conductores con un vehículo igual o más grande
+  required_vehicle VehicleType @default(CARRY)
+
+  // Cargue y descargue
+  helpers Int @default(0)
+  pickup_floor Int?
+  pickup_has_elevator Boolean?
+  destination_floor Int?
+  destination_has_elevator Boolean?
+
+  // Contactos de entrega, cuando no es el cliente quien entrega o recibe
+  sender_name String? @db.VarChar(100)
+  sender_phone String? @db.VarChar(20)
+  receiver_name String? @db.VarChar(100)
+  receiver_phone String? @db.VarChar(20)
+
+  // null = "Ahora". Pasado expires_at sin conductor asignado, la solicitud vence
+  scheduled_at DateTime?
+  expires_at DateTime?
+
+  canceled_by Int?
+  cancel_reason String? @db.VarChar(255)
+
   pickup_position Unsupported("POINT")
   destination_position Unsupported("POINT")
 
@@ -114,7 +144,9 @@ model ClientRequests {
   update_at DateTime @updatedAt
 
   driverTripOffers DriverTripOffer[]
+  dismissedBy DriverDismissedRequest[]
 
+  @@index([status, expires_at])
   @@map("client_requests")
 }
 
@@ -126,6 +158,32 @@ enum ClientRequestStatus {
   TRAVELING
   FINISHED
   CANCELED
+  EXPIRED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+// De menor a mayor capacidad; el orden importa para saber si una carga cabe
+enum VehicleType {
+  CARRY
+  ESTACAS
+  FURGON
+  CAMION
+}
+
+enum CargoCategory {
+  MUDANZA
+  MERCANCIA
+  MATERIALES
+  MAQUINARIA
+  ELECTRODOMESTICOS
+  OTRO
 }
 
 model DriverTripOffer {
@@ -137,6 +195,7 @@ model DriverTripOffer {
   fare_offered Float
   time Float
   distance Float
+  status OfferStatus @default(PENDING)
 
   created_at DateTime @default(now())
   update_at DateTime @updatedAt
@@ -144,7 +203,21 @@ model DriverTripOffer {
   driver User @relation("DriverTripOffers", fields: [id_driver], references: [id], onDelete: Cascade, onUpdate: Cascade)
   client_request ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  @@index([id_client_request, status])
   @@map("driver_trip_offers")
+}
+
+// Solicitudes que un conductor marcó como "No me interesa": no se le vuelven a mostrar
+model DriverDismissedRequest {
+  id_driver Int
+  id_client_request Int
+  created_at DateTime @default(now())
+
+  driver User @relation(fields: [id_driver], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  client_request ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([id_driver, id_client_request])
+  @@map("driver_dismissed_requests")
 }
 
 model DriverCarInfo {
@@ -153,6 +226,8 @@ model DriverCarInfo {
   brand String @db.VarChar(50)
   color String @db.VarChar(50)
   plate String @db.VarChar(20)
+  // Los conductores que ya existían quedan con camioneta de estacas; en la Fase 4 lo eligen al registrarse
+  vehicle_type VehicleType @default(ESTACAS)
 
   driver User @relation( fields: [id_driver], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
