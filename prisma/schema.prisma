@@ -19,13 +19,19 @@ model User {
   email String @unique
   phone String
   image String?
-  password String
+  // null en cuentas creadas con Google: pueden crear una contraseña con "¿Olvidaste tu contraseña?"
+  password String?
+  // Cuenta de Google vinculada (el "sub" del token de Google)
+  google_id String? @unique @db.VarChar(64)
+  // true cuando el correo se comprobó: entró con Google o restableció la contraseña con el código
+  email_verified Boolean @default(false)
   notification_token String?
   created_at DateTime @default(now())
   update_at DateTime @updatedAt
 
   roles UserHasRole[]
   driverPosition DriverPosition?
+  passwordResetCodes PasswordResetCode[]
 
 
   client ClientRequests[] @relation("client")
@@ -177,6 +183,28 @@ enum VehicleType {
   CAMION
 }
 
+enum DriverApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Código de 6 dígitos para restablecer la contraseña. Se guarda solo su hash; vence y tiene intentos limitados
+model PasswordResetCode {
+  id Int @id @default(autoincrement())
+  id_user Int
+  code_hash String @db.VarChar(64)
+  expires_at DateTime
+  attempts Int @default(0)
+  used_at DateTime?
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [id_user], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_user, created_at])
+  @@map("password_reset_codes")
+}
+
 enum CargoCategory {
   MUDANZA
   MERCANCIA
@@ -226,8 +254,22 @@ model DriverCarInfo {
   brand String @db.VarChar(50)
   color String @db.VarChar(50)
   plate String @db.VarChar(20)
-  // Los conductores que ya existían quedan con camioneta de estacas; en la Fase 4 lo eligen al registrarse
+  // Los conductores que ya existían quedan con camioneta de estacas; los nuevos lo eligen al registrarse
   vehicle_type VehicleType @default(ESTACAS)
+  model_year Int?
+  // Carrocería cerrada (furgón, carpa) o abierta (estacas, platón)
+  is_covered Boolean @default(false)
+
+  // Documentos con su vencimiento; la app avisa antes de que venzan
+  license_number String? @db.VarChar(30)
+  license_category String? @db.VarChar(3)
+  license_expires_at DateTime?
+  soat_expires_at DateTime?
+  techno_expires_at DateTime?
+  property_card_number String? @db.VarChar(30)
+
+  // Para la demo se aprueban solos; en la Fase 8 el admin los verifica desde el panel
+  approval_status DriverApprovalStatus @default(APPROVED)
 
   driver User @relation( fields: [id_driver], references: [id], onDelete: Cascade, onUpdate: Cascade)
 

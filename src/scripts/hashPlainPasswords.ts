@@ -7,7 +7,9 @@ const BCRYPT_PREFIX = /^\$2[aby]\$\d{2}\$/;
 
 const main = async () => {
     const users = await prisma.user.findMany({ select: { id: true, email: true, password: true } });
-    const plain = users.filter((user) => !BCRYPT_PREFIX.test(user.password));
+    // Las cuentas creadas con Google no tienen contraseña
+    const plain = users.filter((user): user is typeof user & { password: string } =>
+        user.password !== null && !BCRYPT_PREFIX.test(user.password));
 
     if (plain.length === 0) {
         console.log("Todas las contraseñas ya están protegidas con bcrypt.");

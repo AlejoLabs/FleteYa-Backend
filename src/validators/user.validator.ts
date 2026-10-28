@@ -3,7 +3,8 @@ import type { TypeOf } from "zod/v3";
 export const createUserSchema = z.object({
     name: z.string().min(2, {message: "El nombre es obligatorio"}),
     lastname: z.string().min(2, {message: "El apellido es obligatorio"}),
-    email: z.string().refine((val) => /\S+@\S+\.\S+/.test(val), {message: "Formato del correo no valido"}),
+    // Sin espacios y en minúsculas, igual que en el login, para que "Ana@Gmail.com " y "ana@gmail.com" sean la misma cuenta
+    email: z.string().trim().toLowerCase().refine((val) => /\S+@\S+\.\S+/.test(val), {message: "Formato del correo no valido"}),
     phone: z.string().min(2, {message: "El telefono es obligatorio"}),
     password: z.string().min(6, {message: "Minimo 6 caracteres"}),
 

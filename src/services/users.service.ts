@@ -40,7 +40,7 @@ export const update = async (id: number, data: updateUserInput, file?: Express.M
 
     }));
 
-    const { password, ...userData } = updatedUser;
+    const { password, google_id, ...userData } = updatedUser;
 
     return {
         ...userData,
@@ -78,7 +78,7 @@ export const findById = async (id: number) => {
         throw new AppError("Usuario no encontrado", 404);
     }
 
-    const { password, ...userData } = user;
+    const { password, google_id, ...userData } = user;
 
     return {
         ...userData,
