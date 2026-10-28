@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import {initializeSocket} from "./sockets/socketHandler.js";
 import http from "http";
 import { expireStaleRequests } from "./services/client_request_expiration.service.js";
+import { remindExpiringDocuments, sendScheduledReminders } from "./services/reminders.service.js";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -51,4 +52,11 @@ server.listen(Number (PORT), HOST, ()=>{
 const EXPIRE_EVERY_MS = 30 * 1000;
 setInterval(() => {
     expireStaleRequests().catch((err) => console.error("[expiracion] error", err));
+    sendScheduledReminders().catch((err) => console.error("[recordatorios] error en fletes programados", err));
 }, EXPIRE_EVERY_MS);
+
+// Documentos por vencer: una revisión al arrancar y luego cada hora (cada conductor recibe como mucho un aviso por semana)
+const DOCUMENTS_CHECK_EVERY_MS = 60 * 60 * 1000;
+const checkDocuments = () => remindExpiringDocuments().catch((err) => console.error("[recordatorios] error en documentos", err));
+setTimeout(checkDocuments, 60 * 1000);
+setInterval(checkDocuments, DOCUMENTS_CHECK_EVERY_MS);

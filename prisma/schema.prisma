@@ -25,13 +25,15 @@ model User {
   google_id String? @unique @db.VarChar(64)
   // true cuando el correo se comprobó: entró con Google o restableció la contraseña con el código
   email_verified Boolean @default(false)
-  notification_token String?
+  // Token de Firebase Cloud Messaging del teléfono donde tiene la sesión abierta; null al cerrar sesión
+  notification_token String? @db.VarChar(255)
   created_at DateTime @default(now())
   update_at DateTime @updatedAt
 
   roles UserHasRole[]
   driverPosition DriverPosition?
   passwordResetCodes PasswordResetCode[]
+  tripPhotos TripPhoto[]
 
 
   client ClientRequests[] @relation("client")
@@ -141,6 +143,12 @@ model ClientRequests {
   canceled_by Int?
   cancel_reason String? @db.VarChar(255)
 
+  // Prueba de entrega: código de 4 dígitos que quien recibe le dicta al conductor. Solo lo ve el cliente
+  delivery_code String? @db.Char(4)
+  delivery_code_attempts Int @default(0)
+  // Recordatorio push del flete programado, para no mandarlo dos veces
+  reminder_sent_at DateTime?
+
   pickup_position Unsupported("POINT")
   destination_position Unsupported("POINT")
 
@@ -151,6 +159,7 @@ model ClientRequests {
 
   driverTripOffers DriverTripOffer[]
   dismissedBy DriverDismissedRequest[]
+  photos TripPhoto[]
 
   @@index([status, expires_at])
   @@map("client_requests")
@@ -271,11 +280,50 @@ model DriverCarInfo {
   // Para la demo se aprueban solos; en la Fase 8 el admin los verifica desde el panel
   approval_status DriverApprovalStatus @default(APPROVED)
 
+  // Último aviso push de documentos por vencer; se repite como mucho una vez por semana
+  documents_reminded_at DateTime?
+
   driver User @relation( fields: [id_driver], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  photos VehiclePhoto[]
 
   created_at DateTime @default(now())
   update_at DateTime @updatedAt
 
   @@map("driver_car_info")
 
+}
+// CARGO: el cliente muestra la carga al pedir el flete. PICKUP y DELIVERY: el conductor la fotografía al cargar y al entregar
+enum TripPhotoKind {
+  CARGO
+  PICKUP
+  DELIVERY
+}
+
+// Las fotos se guardan fuera de public/: solo se sirven a quien puede ver el viaje
+model TripPhoto {
+  id Int @id @default(autoincrement())
+  id_client_request Int
+  id_user Int
+  kind TripPhotoKind
+  file_name String @db.VarChar(100)
+  created_at DateTime @default(now())
+
+  client_request ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user User @relation(fields: [id_user], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_client_request, kind])
+  @@map("trip_photos")
+}
+
+// Fotos del vehículo del conductor, para que el cliente vea qué le llega y el admin lo verifique (Fase 8)
+model VehiclePhoto {
+  id Int @id @default(autoincrement())
+  id_driver Int
+  file_name String @db.VarChar(100)
+  created_at DateTime @default(now())
+
+  car DriverCarInfo @relation(fields: [id_driver], references: [id_driver], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_driver])
+  @@map("vehicle_photos")
 }

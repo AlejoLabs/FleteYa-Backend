@@ -109,7 +109,7 @@ export const getByClientRequest = async (req: Request, res: Response, next: Next
     try {
         const id = Number(req.params.id);
         await assertTripParticipant(id, getUserId(req));
-        const result = await clientRequestQueriesService.getByClientRequest(id);
+        const result = await clientRequestQueriesService.getByClientRequest(id, getUserId(req));
         return res.status(200).json(result);
     } catch (err) {
         next(err);
@@ -167,4 +167,22 @@ export const getTimeAndDistance = async (req: Request, res: Response, next: Next
         next(err);
     }
 
+}
+
+export const deliverClientRequest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await clientRequestTripService.deliverWithCode(getUserId(req), Number(req.params.id), req.body);
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export const confirmDelivery = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await clientRequestTripService.confirmDelivery(getUserId(req), Number(req.params.id));
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
 }

@@ -19,3 +19,7 @@ export const updateUserSchema = z.object({
 
 export type createUserInput = z.infer<typeof createUserSchema>;
 export type updateUserInput = z.infer<typeof updateUserSchema>;
+// null al cerrar sesión: ese teléfono deja de recibir notificaciones de la cuenta
+export const notificationTokenSchema = z.object({
+    token: z.string().trim().min(20, {message: "El token de notificaciones no es válido"}).max(255).nullable(),
+});

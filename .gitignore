@@ -11,3 +11,9 @@ dist/
 
 # Archivos subidos por usuarios (no deben estar en el repo)
 public/uploads/
+
+# Fotos de viajes y vehículos (se sirven con permisos, no desde public/)
+storage/
+
+# Llave privada de Firebase (notificaciones push)
+firebase-service-account.json

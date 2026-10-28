@@ -85,3 +85,11 @@ export const findById = async (id: number) => {
         image: userData.image ? `http://${process.env.HOST}:${process.env.PORT}${userData.image}` : null,
     };
 }
+// Un teléfono tiene un solo token: si otra cuenta lo tenía (cerró sesión y entró otra persona), se le quita
+export const saveNotificationToken = async (id: number, token: string | null) => {
+    if (token) {
+        await prisma.user.updateMany({ where: { notification_token: token, id: { not: id } }, data: { notification_token: null } });
+    }
+    await prisma.user.update({ where: { id }, data: { notification_token: token } });
+    return { saved: token !== null };
+}

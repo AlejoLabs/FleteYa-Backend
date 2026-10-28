@@ -62,3 +62,17 @@ export const createReport = () => {
         },
     };
 };
+
+// JPEG de 1x1: basta para las pruebas, el backend revisa que los primeros bytes sean de una imagen
+export const TINY_JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=", "base64");
+
+// Sube un archivo como lo hace la app: multipart con el campo "file" y los demás campos de texto
+export const uploadPhoto = async (path, token, fields = {}, bytes = TINY_JPEG, type = "image/jpeg") => {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) form.append(key, value);
+    form.append("file", new Blob([bytes], { type }), "foto.jpg");
+    const res = await fetch(API + path, { method: "POST", headers: token ? { Authorization: token } : {}, body: form });
+    let data = null;
+    try { data = await res.json(); } catch {}
+    return { status: res.status, data };
+};

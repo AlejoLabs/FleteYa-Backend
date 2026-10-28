@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import * as userService from "../services/users.service.js";
 import { AppError } from "../utils/App.Error.js";
+import { getUserId } from "../utils/authorization.js";
 
 
 export const update = async (req: Request, res: Response, next: NextFunction) => {
@@ -38,4 +39,12 @@ export const findById = async (req: Request, res: Response, next: NextFunction) 
         next(err);    
     }
 
+}
+export const saveNotificationToken = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await userService.saveNotificationToken(getUserId(req), req.body.token);
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
 }

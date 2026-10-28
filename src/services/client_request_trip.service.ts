@@ -1,12 +1,20 @@
+import crypto from "crypto";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
 import { deny } from "../utils/authorization.js";
 import type { ClientRequestStatus } from "../generated/prisma/enums.js";
-import type { AssignDriverInput, CancelClientRequestInput, UpdateClientRatingInput, UpdateClientRequestInput, UpdateDriverRatingInput } from "../validators/client_request.validator.js";
+import type { AssignDriverInput, CancelClientRequestInput, DeliverInput, UpdateClientRatingInput, UpdateClientRequestInput, UpdateDriverRatingInput } from "../validators/client_request.validator.js";
 import { notifyDrivers, notifyUser } from "../sockets/socketHandler.js";
 import { findTripOrFail } from "./client_request.shared.js";
+import { countTripPhotos } from "./trip_photo.service.js";
+import { formatPesos, sendPush } from "../utils/push.js";
 
-// Ciclo del viaje después de buscar: asignar conductor, avanzar estados, cancelar y calificar
+// Ciclo del viaje después de buscar: asignar conductor, avanzar estados, entregar, cancelar y calificar
+
+// Intentos para escribir el código de entrega; después, solo el cliente puede confirmar desde su app
+const MAX_DELIVERY_ATTEMPTS = 5;
+
+const newDeliveryCode = () => crypto.randomInt(0, 10000).toString().padStart(4, "0");
 
 export const assignDriver = async (userId: number, data: AssignDriverInput) => {
     const clientRequest = await findTripOrFail(data.id);
@@ -36,6 +44,8 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
                 id_driver_assigned: data.id_driver_assigned,
                 status: "ACCEPTED",
                 fare_assigned: offer.fare_offered,
+                delivery_code: newDeliveryCode(),
+                delivery_code_attempts: 0,
             }
         });
         if (result.count === 0) {
@@ -59,6 +69,10 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
         notifyUser(idDriver, `offer_status/${idDriver}`, { id_client_request: data.id, status: "REJECTED", reason: "OTHER_DRIVER" });
     }
     notifyDrivers("client_request_removed", { id_client_request: data.id });
+    void sendPush(data.id_driver_assigned, {
+        type: "DRIVER_ASSIGNED", id_client_request: data.id,
+        title: "¡Te eligieron para un flete!", body: `El cliente aceptó tu oferta de ${formatPesos(offer.fare_offered)}. Ve a recoger la carga.`
+    });
 
     return prisma.clientRequests.findUnique({
         where: { id: data.id },
@@ -66,13 +80,12 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
     });
 }
 
-// Estados a los que el conductor asignado puede avanzar desde cada estado. Para terminar hay que pasar por
-// "Carga recogida" (TRAVELING); cancelar va por su propio endpoint
+// Estados a los que el conductor asignado puede avanzar desde cada estado. "Carga recogida" (TRAVELING) pide
+// la foto al cargar; terminar va por la prueba de entrega y cancelar por su propio endpoint
 const NEXT_STATUSES: Record<string, ClientRequestStatus[]> = {
     ACCEPTED: ["ON_THE_WAY", "ARRIVED"],
     ON_THE_WAY: ["ARRIVED"],
     ARRIVED: ["TRAVELING"],
-    TRAVELING: ["FINISHED"],
 };
 
 export const updateStatus = async (userId: number, data: UpdateClientRequestInput) => {
@@ -83,8 +96,14 @@ export const updateStatus = async (userId: number, data: UpdateClientRequestInpu
     }
 
     const nextStatus = data.status as ClientRequestStatus;
+    if (nextStatus === "FINISHED" && clientRequest.status === "TRAVELING") {
+        throw new AppError("Para terminar, toma la foto de entrega y escribe el código que te dicta quien recibe", 409);
+    }
     if (!(NEXT_STATUSES[clientRequest.status] ?? []).includes(nextStatus)) {
         throw new AppError(`No se puede pasar de ${clientRequest.status} a ${nextStatus}`, 409);
+    }
+    if (nextStatus === "TRAVELING" && await countTripPhotos(data.id, "PICKUP") === 0) {
+        throw new AppError("Toma al menos una foto de la carga al recogerla", 409);
     }
 
     // Con el estado actual en el where, una cancelación simultánea no queda pisada por este cambio
@@ -95,7 +114,82 @@ export const updateStatus = async (userId: number, data: UpdateClientRequestInpu
     if (result.count === 0) {
         throw new AppError("El viaje cambió mientras tanto; vuelve a cargarlo", 409);
     }
+    if (nextStatus === "ARRIVED") {
+        void sendPush(clientRequest.id_client, { type: "DRIVER_ARRIVED", id_client_request: data.id, title: "Tu conductor llegó", body: "Ya está en el punto de recogida." });
+    } else if (nextStatus === "TRAVELING") {
+        void sendPush(clientRequest.id_client, { type: "CARGO_PICKED_UP", id_client_request: data.id, title: "Carga recogida", body: "Tu carga va en camino al destino." });
+    }
     return prisma.clientRequests.findUnique({ where: { id: data.id } });
+}
+
+// Cierra el viaje entregado y avisa a los dos (el que no hizo la acción tiene la pantalla del viaje abierta)
+const finishTrip = async (id: number, idClient: number, idDriver: number, confirmedBy: "DRIVER" | "CLIENT") => {
+    const result = await prisma.clientRequests.updateMany({
+        where: { id, status: "TRAVELING" },
+        data: { status: "FINISHED" }
+    });
+    if (result.count === 0) {
+        throw new AppError("El viaje cambió mientras tanto; vuelve a cargarlo", 409);
+    }
+    const payload = { id_client_request: id, status: "FINISHED" };
+    notifyUser(idClient, `new_status_trip/${id}`, payload);
+    notifyUser(idDriver, `new_status_trip/${id}`, payload);
+    if (confirmedBy === "DRIVER") {
+        void sendPush(idClient, { type: "DELIVERED", id_client_request: id, title: "Carga entregada", body: "El conductor entregó tu carga. Califica el servicio." });
+    } else {
+        void sendPush(idDriver, { type: "DELIVERED", id_client_request: id, title: "Entrega confirmada", body: "El cliente confirmó que recibió la carga." });
+    }
+    return { id, status: "FINISHED" };
+}
+
+// El conductor entrega: necesita la foto de la carga entregada y el código que le dicta quien recibe
+export const deliverWithCode = async (userId: number, id: number, data: DeliverInput) => {
+    const trip = await prisma.clientRequests.findUnique({
+        where: { id },
+        select: { id_client: true, id_driver_assigned: true, status: true, delivery_code: true, delivery_code_attempts: true }
+    });
+    if (!trip) {
+        throw new AppError("La solicitud de viaje no existe", 404);
+    }
+    if (trip.id_driver_assigned !== userId) {
+        throw deny(userId, "entregar", `client_requests/${id}`);
+    }
+    if (trip.status !== "TRAVELING") {
+        throw new AppError("Solo se entrega una carga que ya recogiste", 409);
+    }
+    if (await countTripPhotos(id, "DELIVERY") === 0) {
+        throw new AppError("Toma una foto de la carga entregada antes de cerrar el viaje", 409);
+    }
+    // Viajes asignados antes de la Fase 5 no tienen código
+    if (!trip.delivery_code) {
+        throw new AppError("Este viaje no tiene código: pide al cliente que confirme la entrega desde su app", 409);
+    }
+    if (trip.delivery_code_attempts >= MAX_DELIVERY_ATTEMPTS) {
+        throw new AppError("Se agotaron los intentos: pide al cliente que confirme la entrega desde su app", 429);
+    }
+
+    // Comparación en tiempo constante, como con los códigos de contraseña
+    const isValid = crypto.timingSafeEqual(Buffer.from(data.code), Buffer.from(trip.delivery_code));
+    if (!isValid) {
+        await prisma.clientRequests.update({ where: { id }, data: { delivery_code_attempts: { increment: 1 } } });
+        const left = MAX_DELIVERY_ATTEMPTS - trip.delivery_code_attempts - 1;
+        throw new AppError(left > 0
+            ? `Código incorrecto. Te quedan ${left} ${left === 1 ? "intento" : "intentos"}`
+            : "Código incorrecto. Se agotaron los intentos: pide al cliente que confirme la entrega desde su app", 400);
+    }
+    return finishTrip(id, trip.id_client, userId, "DRIVER");
+}
+
+// El cliente confirma que recibió la carga (por ejemplo, si él mismo la recibe o el conductor agotó los intentos)
+export const confirmDelivery = async (userId: number, id: number) => {
+    const trip = await findTripOrFail(id);
+    if (trip.id_client !== userId) {
+        throw deny(userId, "confirmar-entrega", `client_requests/${id}`);
+    }
+    if (trip.status !== "TRAVELING") {
+        throw new AppError("Solo se confirma la entrega de una carga que va en camino", 409);
+    }
+    return finishTrip(id, userId, trip.id_driver_assigned!, "CLIENT");
 }
 
 // Quién puede cancelar y en qué estados. Con la carga ya recogida no se cancela desde la app
@@ -138,6 +232,10 @@ export const cancelClientRequest = async (userId: number, id: number, data: Canc
     } else {
         const otherUser = isClient ? trip.id_driver_assigned! : trip.id_client;
         notifyUser(otherUser, `trip_canceled/${id}`, payload);
+        void sendPush(otherUser, {
+            type: "TRIP_CANCELED", id_client_request: id,
+            title: isClient ? "El cliente canceló el flete" : "El conductor canceló el flete", body: `Motivo: ${data.reason}`
+        });
     }
     return { id, status: "CANCELED", ...payload };
 }

@@ -4,6 +4,7 @@ import { AppError } from "../utils/App.Error.js";
 import { deny } from "../utils/authorization.js";
 import { vehicleRank } from "../utils/vehicles.js";
 import { notifyUser } from "../sockets/socketHandler.js";
+import { formatPesos, sendPush } from "../utils/push.js";
 
 // Ofertar o contraofertar: si el conductor ya tenía una oferta pendiente, la nueva la reemplaza
 export const createDriverTripOffer = async (idDriver: number, data: CreateDriverTripOfferInput) => {
@@ -33,7 +34,7 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
         throw new AppError("Marcaste esta solicitud como \"No me interesa\"", 409);
     }
 
-    return prisma.$transaction(async (tx) => {
+    const offer = await prisma.$transaction(async (tx) => {
         await tx.driverTripOffer.updateMany({
             where: { id_client_request: data.id_client_request, id_driver: idDriver, status: "PENDING" },
             data: { status: "WITHDRAWN" }
@@ -48,6 +49,13 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
             }
         });
     });
+
+    // Con la app abierta la oferta llega por socket; la push es para cuando el cliente salió de la app mientras espera
+    void sendPush(clientRequest.id_client, {
+        type: "NEW_OFFER", id_client_request: data.id_client_request,
+        title: `Nueva oferta: ${formatPesos(data.fare_offered)}`, body: `Llega en unos ${Math.round(data.time)} minutos. Toca para verla.`
+    });
+    return offer;
 }
 
 const findOfferOrFail = async (id: number) => {

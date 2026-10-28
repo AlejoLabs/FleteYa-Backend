@@ -93,6 +93,15 @@ export const updateDriverRatingSchema = z.object({
     driver_rating: ratingSchema("La calificación del conductor"),
 });
 
+// Va como campo de texto del formulario multipart, junto al archivo
+export const tripPhotoSchema = z.object({
+    kind: z.enum(["CARGO", "PICKUP", "DELIVERY"], {message: "El tipo de foto debe ser CARGO, PICKUP o DELIVERY"}),
+});
+
+export const deliverSchema = z.object({
+    code: z.string().trim().regex(/^\d{4}$/, {message: "El código de entrega tiene 4 dígitos"}),
+});
+
 
 export type CreateClientRequestInput = z.infer<typeof createClientRequestSchema>;
 export type AssignDriverInput = z.infer<typeof assignDriverSchema>;
@@ -101,3 +110,4 @@ export type UpdateClientRatingInput = z.infer<typeof updateClientRatingSchema>;
 export type UpdateDriverRatingInput = z.infer<typeof updateDriverRatingSchema>;
 export type RaiseFareInput = z.infer<typeof raiseFareSchema>;
 export type CancelClientRequestInput = z.infer<typeof cancelClientRequestSchema>;
+export type DeliverInput = z.infer<typeof deliverSchema>;

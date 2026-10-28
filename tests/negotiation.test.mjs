@@ -1,5 +1,5 @@
 // Negociación del flete: ofertas, contraofertas, precio, "No me interesa", estados, cancelación y vencimiento. Uso: npm test
-import { call, connectSocket, createReport, dbHelper, testClient, testDriver, wait } from "./support/api.mjs";
+import { call, connectSocket, createReport, dbHelper, testClient, testDriver, uploadPhoto, wait } from "./support/api.mjs";
 
 const { check, finish } = createReport();
 const CLIENT = await testClient();
@@ -94,9 +94,13 @@ const status = (s) => call("PUT", "/client-requests/update_status", DRIVER.token
 check("A camino", (await status("ON_THE_WAY")).status === 200);
 check("Llegó", (await status("ARRIVED")).status === 200);
 check("No se termina sin recoger la carga: 409", (await status("FINISHED")).status === 409);
+await uploadPhoto(`/client-requests/${small}/photos`, DRIVER.token, { kind: "PICKUP" });
 check("Carga recogida", (await status("TRAVELING")).status === 200);
 check("Con la carga a bordo no se cancela: 409", (await call("PUT", `/client-requests/${small}/cancel`, CLIENT.token, { reason: "Ya no lo necesito" })).status === 409);
-check("Termina el viaje", (await status("FINISHED")).status === 200);
+// Desde la Fase 5 el viaje se cierra con la foto de entrega y el código que solo ve el cliente
+await uploadPhoto(`/client-requests/${small}/photos`, DRIVER.token, { kind: "DELIVERY" });
+const { delivery_code } = (await call("GET", `/client-requests/${small}`, CLIENT.token)).data;
+check("Termina el viaje con el código de entrega", (await call("POST", `/client-requests/${small}/deliver`, DRIVER.token, { code: delivery_code })).status === 200);
 
 // 10. Cancelar con motivo después de asignar: avisa al conductor
 const toCancel = (await create()).data; created.push(toCancel);

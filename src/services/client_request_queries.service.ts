@@ -83,6 +83,10 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
                     WHERE O.id_client_request = CR.id AND O.id_driver = ${idDriver} AND O.status = 'PENDING'
                     ORDER BY O.id DESC LIMIT 1
                 ) AS my_offer,
+                (
+                    SELECT COUNT(*) FROM trip_photos AS TP
+                    WHERE TP.id_client_request = CR.id AND TP.kind = 'CARGO'
+                ) AS cargo_photos,
                 JSON_OBJECT (
                     "x", ST_X(pickup_position),
                     "y", ST_Y(pickup_position)
@@ -168,7 +172,8 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
     return normalizeBigInt(formatted);
 }
 
-export const getByClientRequest = async (id: number) => {
+// viewerId decide si va el código de entrega: solo lo ve el cliente, para dárselo a quien recibe
+export const getByClientRequest = async (id: number, viewerId: number) => {
     const data = await prisma.$queryRaw<any[]>`
             SELECT
                 CR.id,
@@ -265,8 +270,12 @@ export const getByClientRequest = async (id: number) => {
         }
     }));
 
-
-    return normalizeBigInt(formatted[0]);
+    const trip = normalizeBigInt(formatted[0]);
+    if (trip.id_client === viewerId) {
+        const { delivery_code } = await prisma.clientRequests.findUniqueOrThrow({ where: { id }, select: { delivery_code: true } });
+        trip.delivery_code = delivery_code;
+    }
+    return trip;
 }
 
 export const getByClientAssigned = async (id_client: number) => {

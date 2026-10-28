@@ -16,8 +16,17 @@ export const createDriverCarInfo = async (req: Request, res: Response, next: Nex
 export const getByDriver = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const  idDriver = Number(req.params.id_driver);
-        const driverCarInfo = await driverCarInfoService.getByDriver(idDriver);
+        const driverCarInfo = await driverCarInfoService.getByDriver(idDriver, getUserId(req));
         return res.status(200).json(driverCarInfo);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export const getMyDocuments = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const documents = await driverCarInfoService.getMyDocuments(getUserId(req));
+        return res.status(200).json(documents);
     } catch (err) {
         next(err);
     }
