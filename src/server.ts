@@ -12,7 +12,7 @@ import path from "path";
 import { fileURLToPath } from 'url';
 import {initializeSocket} from "./sockets/socketHandler.js";
 import http from "http";
-import { expireStaleRequests } from "./services/client_request_service.js";
+import { expireStaleRequests } from "./services/client_request_expiration.service.js";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);

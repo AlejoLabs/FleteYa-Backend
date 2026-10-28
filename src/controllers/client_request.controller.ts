@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import * as clientRequestService from "../services/client_request_service.js";
+import * as clientRequestService from "../services/client_request.service.js";
+import * as clientRequestTripService from "../services/client_request_trip.service.js";
+import * as clientRequestQueriesService from "../services/client_request_queries.service.js";
+import { assertTripParticipant } from "../services/client_request.shared.js";
 import { AppError } from "../utils/App.Error.js";
 import { getUserId } from "../utils/authorization.js";
 
@@ -18,7 +21,7 @@ export const createClientRequest = async (req: Request, res: Response, next: Nex
 
 export const assignDriver = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const data = await clientRequestService.assignDriver(getUserId(req), req.body);
+        const data = await clientRequestTripService.assignDriver(getUserId(req), req.body);
         return res.status(200).json(data);
     } catch (err) {
         next(err);
@@ -28,7 +31,7 @@ export const assignDriver = async (req: Request, res: Response, next: NextFuncti
 
 export const updateClientRequest = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const data = await clientRequestService.updateStatus(getUserId(req), req.body);
+        const data = await clientRequestTripService.updateStatus(getUserId(req), req.body);
         return res.status(200).json(data);
     } catch (err) {
         next(err);
@@ -38,7 +41,7 @@ export const updateClientRequest = async (req: Request, res: Response, next: Nex
 
 export const updateClientRating = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await clientRequestService.updateClientRating(getUserId(req), req.body);
+        const result = await clientRequestTripService.updateClientRating(getUserId(req), req.body);
         return res.status(200).json(result);
     } catch(err) {
         next(err);
@@ -47,7 +50,7 @@ export const updateClientRating = async (req: Request, res: Response, next: Next
 
 export const updateDriverRating = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await clientRequestService.updateDriverRating(getUserId(req), req.body);
+        const result = await clientRequestTripService.updateDriverRating(getUserId(req), req.body);
         return res.status(200).json(result);
     } catch(err) {
         next(err);
@@ -58,7 +61,7 @@ export const getNearbyClientRequests = async (req: Request, res: Response, next:
     try {
         const driverLat = Number(req.params.driver_lat);
         const driverLng = Number(req.params.driver_lng);
-        const result = await clientRequestService.getNearbyClientRequests(getUserId(req), driverLat, driverLng);
+        const result = await clientRequestQueriesService.getNearbyClientRequests(getUserId(req), driverLat, driverLng);
         return res.status(200).json(result);
     } catch (err) {
         next(err);
@@ -77,7 +80,7 @@ export const raiseFare = async (req: Request, res: Response, next: NextFunction)
 
 export const cancelClientRequest = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await clientRequestService.cancelClientRequest(getUserId(req), Number(req.params.id), req.body);
+        const result = await clientRequestTripService.cancelClientRequest(getUserId(req), Number(req.params.id), req.body);
         return res.status(200).json(result);
     } catch (err) {
         next(err);
@@ -95,7 +98,7 @@ export const dismissClientRequest = async (req: Request, res: Response, next: Ne
 
 export const getMyActiveTrips = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await clientRequestService.getMyActiveTrips(getUserId(req));
+        const result = await clientRequestQueriesService.getMyActiveTrips(getUserId(req));
         return res.status(200).json(result);
     } catch (err) {
         next(err);
@@ -105,8 +108,8 @@ export const getMyActiveTrips = async (req: Request, res: Response, next: NextFu
 export const getByClientRequest = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id = Number(req.params.id);
-        await clientRequestService.assertTripParticipant(id, getUserId(req));
-        const result = await clientRequestService.getByClientRequest(id);
+        await assertTripParticipant(id, getUserId(req));
+        const result = await clientRequestQueriesService.getByClientRequest(id);
         return res.status(200).json(result);
     } catch (err) {
         next(err);
@@ -117,7 +120,7 @@ export const getByClientRequest = async (req: Request, res: Response, next: Next
 export const getByClientAssigned = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id_client = Number(req.params.id_client);
-        const result = await clientRequestService.getByClientAssigned(id_client);
+        const result = await clientRequestQueriesService.getByClientAssigned(id_client);
         return res.status(200).json(result);
     } catch(err) {
         next(err);
@@ -127,7 +130,7 @@ export const getByClientAssigned = async (req: Request, res: Response, next: Nex
 export const getByDriverAssigned = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id_driver_assigned = Number(req.params.id_driver_assigned);
-        const result = await clientRequestService.getByDriverAssigned(id_driver_assigned);
+        const result = await clientRequestQueriesService.getByDriverAssigned(id_driver_assigned);
         return res.status(200).json(result);
     } catch(err) {
         next(err);

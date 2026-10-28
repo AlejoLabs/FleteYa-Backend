@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import * as driverTripOfferService from "../services/driver_trip_offer.service.js";
-import { assertTripOwner } from "../services/client_request_service.js";
+import { assertTripOwner } from "../services/client_request.shared.js";
 import { getUserId } from "../utils/authorization.js";
 
 
