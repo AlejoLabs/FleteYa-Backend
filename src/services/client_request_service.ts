@@ -4,6 +4,7 @@ import { AppError } from "../utils/App.Error.js";
 import type { AssignDriverInput, CreateClientRequestInput, UpdateClientRatingInput, UpdateClientRequestInput, UpdateDriverRatingInput } from "../validators/client_request.validator.js";
 import type { ClientRequest } from "node:http";
 import type { ClientRequestStatus } from "../generated/prisma/enums.js";
+import { deny } from "../utils/authorization.js";
 
 export const createClientRequest = async (data: CreateClientRequestInput) => {
 
@@ -57,50 +58,108 @@ export const createClientRequest = async (data: CreateClientRequestInput) => {
 
 }
 
-export const assignDriver = async (data: AssignDriverInput) => {
-    const clientRequest = await prisma.clientRequests.findUnique({
-        where: { id: data.id }
+const findTripOrFail = async (id: number) => {
+    const trip = await prisma.clientRequests.findUnique({
+        where: { id },
+        select: { id: true, id_client: true, id_driver_assigned: true, status: true, fare_offered: true }
     });
-
-    if (!clientRequest) {
-        throw new AppError("La solicitud de cliente no existe", 404);
+    if (!trip) {
+        throw new AppError("La solicitud de viaje no existe", 404);
     }
-    const updatedDriverAssigned = await prisma.clientRequests.update({
-        where: { id: data.id },
+    return trip;
+}
+
+// Solo el cliente dueño o el conductor asignado pueden ver o tocar un viaje
+export const assertTripParticipant = async (id: number, userId: number) => {
+    const trip = await findTripOrFail(id);
+    if (trip.id_client !== userId && trip.id_driver_assigned !== userId) {
+        throw deny(userId, "ver-viaje", `client_requests/${id}`);
+    }
+    return trip;
+}
+
+// Las ofertas de un viaje solo las ve el cliente que lo pidió
+export const assertTripOwner = async (id: number, userId: number) => {
+    const trip = await findTripOrFail(id);
+    if (trip.id_client !== userId) {
+        throw deny(userId, "ver-ofertas", `client_requests/${id}`);
+    }
+    return trip;
+}
+
+export const assignDriver = async (userId: number, data: AssignDriverInput) => {
+    const clientRequest = await findTripOrFail(data.id);
+
+    if (clientRequest.id_client !== userId) {
+        throw deny(userId, "asignar-conductor", `client_requests/${data.id}`);
+    }
+
+    // El precio sale de la oferta guardada, no de lo que mande la app: así nadie asigna un viaje con otro valor
+    const offer = await prisma.driverTripOffer.findFirst({
+        where: { id_client_request: data.id, id_driver: data.id_driver_assigned },
+        orderBy: { created_at: "desc" }
+    });
+    if (!offer) {
+        throw new AppError("Ese conductor no ha hecho una oferta para este viaje", 400);
+    }
+
+    // updateMany con status CREATED evita que dos aceptaciones simultáneas asignen dos conductores
+    const result = await prisma.clientRequests.updateMany({
+        where: { id: data.id, id_client: userId, status: "CREATED" },
         data: {
             id_driver_assigned: data.id_driver_assigned,
             status: "ACCEPTED",
-            fare_assigned: data.fare_assigned,
+            fare_assigned: offer.fare_offered,
         }
     });
-    return updatedDriverAssigned;
+    if (result.count === 0) {
+        throw new AppError("Este viaje ya no está disponible para asignar", 409);
+    }
+
+    return prisma.clientRequests.findUnique({
+        where: { id: data.id },
+        select: { id: true, id_client: true, id_driver_assigned: true, fare_assigned: true, status: true }
+    });
 }
 
-export const updateStatus = async (data: UpdateClientRequestInput) => {
-    const clientRequest = await prisma.clientRequests.findUnique({
-        where: { id: data.id }
-    });
+// Estados a los que el conductor asignado puede avanzar desde cada estado. Cancelar llega en la Fase 3
+const NEXT_STATUSES: Record<string, ClientRequestStatus[]> = {
+    ACCEPTED: ["ON_THE_WAY", "ARRIVED"],
+    ON_THE_WAY: ["ARRIVED"],
+    ARRIVED: ["TRAVELING", "FINISHED"],
+    TRAVELING: ["FINISHED"],
+};
 
-    if (!clientRequest) {
-        throw new AppError("La solicitud de cliente no existe", 404);
+export const updateStatus = async (userId: number, data: UpdateClientRequestInput) => {
+    const clientRequest = await findTripOrFail(data.id);
+
+    if (clientRequest.id_driver_assigned !== userId) {
+        throw deny(userId, "cambiar-estado", `client_requests/${data.id}`);
+    }
+
+    const nextStatus = data.status as ClientRequestStatus;
+    if (!(NEXT_STATUSES[clientRequest.status] ?? []).includes(nextStatus)) {
+        throw new AppError(`No se puede pasar de ${clientRequest.status} a ${nextStatus}`, 409);
     }
 
     const updatedClientRequest = await prisma.clientRequests.update({
         where: { id: data.id },
         data: {
-            status: data.status as ClientRequestStatus,
+            status: nextStatus,
         }
     });
     return updatedClientRequest;
 }
 
-export const updateClientRating = async (data: UpdateClientRatingInput) => {
-    const clientRequest = await prisma.clientRequests.findUnique({
-        where: { id: data.id }
-    });
+// El conductor califica al cliente y viceversa, y solo cuando el viaje terminó
+export const updateClientRating = async (userId: number, data: UpdateClientRatingInput) => {
+    const clientRequest = await findTripOrFail(data.id);
 
-    if (!clientRequest) {
-        throw new AppError(`La solicitud de viaje no existe`, 404);
+    if (clientRequest.id_driver_assigned !== userId) {
+        throw deny(userId, "calificar-cliente", `client_requests/${data.id}`);
+    }
+    if (clientRequest.status !== "FINISHED") {
+        throw new AppError("Solo se puede calificar un viaje finalizado", 409);
     }
 
     const updatedClientRequest = await prisma.clientRequests.update({
@@ -113,13 +172,14 @@ export const updateClientRating = async (data: UpdateClientRatingInput) => {
     return updatedClientRequest;
 }
 
-export const updateDriverRating = async (data: UpdateDriverRatingInput) => {
-    const clientRequest = await prisma.clientRequests.findUnique({
-        where: { id: data.id }
-    });
+export const updateDriverRating = async (userId: number, data: UpdateDriverRatingInput) => {
+    const clientRequest = await findTripOrFail(data.id);
 
-    if (!clientRequest) {
-        throw new AppError(`La solicitud de viaje no existe`, 404);
+    if (clientRequest.id_client !== userId) {
+        throw deny(userId, "calificar-conductor", `client_requests/${data.id}`);
+    }
+    if (clientRequest.status !== "FINISHED") {
+        throw new AppError("Solo se puede calificar un viaje finalizado", 409);
     }
 
     const updatedClientRequest = await prisma.clientRequests.update({

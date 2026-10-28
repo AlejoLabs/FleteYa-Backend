@@ -1,9 +1,12 @@
 import {z} from "zod";
+import { latSchema, lngSchema } from "./client_request.validator.js";
 
 export const createDriverPositionSchema = z.object({
-    id_driver: z.coerce.number().refine((val) => val > 0, {message: "El id del conductor es obligatorio"}),
-    lat: z.coerce.number().refine((val) => val > 0, {message: "La latitud es obligatoria"}),
-    lng: z.coerce.number().refine((val) => val > 0, {message: "La longitud es obligatoria"})
+    // El conductor sale del token; este campo se ignora y se conserva solo por compatibilidad con la app
+    id_driver: z.coerce.number().optional(),
+    // En Colombia la longitud es negativa: el rango cubre todo el mundo y solo descarta el 0,0 que manda un GPS sin señal
+    lat: latSchema("La latitud"),
+    lng: lngSchema("La longitud")
 });
 
 export type CreateDriverPositionInput = z.infer<typeof createDriverPositionSchema>;

@@ -1,12 +1,25 @@
-import { id } from "zod/locales";
 import prisma from "../database/prismaClient.js";
 import type { CreateDriverTripOfferInput } from "../validators/driver_trip_offer.validator.js";
-import { update } from "./users.service.js";
+import { AppError } from "../utils/App.Error.js";
 
-export const createDriverTripOffer = async (data: CreateDriverTripOfferInput) => {
+export const createDriverTripOffer = async (idDriver: number, data: CreateDriverTripOfferInput) => {
+    const clientRequest = await prisma.clientRequests.findUnique({
+        where: { id: data.id_client_request },
+        select: { id_client: true, status: true }
+    });
+    if (!clientRequest) {
+        throw new AppError("La solicitud de viaje no existe", 404);
+    }
+    if (clientRequest.status !== "CREATED") {
+        throw new AppError("Este viaje ya no recibe ofertas", 409);
+    }
+    if (clientRequest.id_client === idDriver) {
+        throw new AppError("No puedes ofertar en tu propio viaje", 400);
+    }
+
     const driverTripOffer = await prisma.driverTripOffer.create({
         data: {
-            id_driver: data.id_driver,
+            id_driver: idDriver,
             id_client_request: data.id_client_request,
             fare_offered: data.fare_offered,
             time: data.time,

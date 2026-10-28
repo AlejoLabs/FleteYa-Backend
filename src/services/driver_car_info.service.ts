@@ -2,13 +2,13 @@ import prisma from "../database/prismaClient.js";
 import type { CreateDriverCarInfoInput } from "../validators/driver_car_info.validator.js";
 import { AppError } from "../utils/App.Error.js";
 
-export const createDriverCarInfo = async (data: CreateDriverCarInfoInput) => {
+export const createDriverCarInfo = async (idDriver: number, data: CreateDriverCarInfoInput) => {
     const driverCarInfo = await prisma.driverCarInfo.upsert({
         where: {
-            id_driver: data.id_driver
+            id_driver: idDriver
         },
         create: {
-            id_driver: data.id_driver,
+            id_driver: idDriver,
             brand: data.brand,
             color: data.color,
             plate: data.plate

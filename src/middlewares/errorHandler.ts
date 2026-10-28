@@ -1,4 +1,5 @@
 import type {Request, Response, NextFunction} from "express";
+import multer from "multer";
 import { AppError } from "../utils/App.Error.js";
 
 export const errorHandler = (
@@ -13,7 +14,14 @@ export const errorHandler = (
             statusCode: err.statusCode,
         });
     }
-    
+
+    if (err instanceof multer.MulterError) {
+        const message = err.code === "LIMIT_FILE_SIZE"
+            ? "La foto no puede pesar más de 5 MB"
+            : "No se pudo subir el archivo";
+        return res.status(400).json({ message, statusCode: 400 });
+    }
+
     console.error(err);
     
     return res.status(err.statusCode || 500).json({

@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { AppError } from "../utils/App.Error.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,13 +21,17 @@ const storage = multer.diskStorage({
     }
 });
 
-export const upload = multer({ 
+// Una foto de perfil no necesita más de 5 MB; sin límite se llegaron a guardar fotos de 9 MB que tardan en cargar
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+export const upload = multer({
     storage,
+    limits: { fileSize: MAX_IMAGE_BYTES, files: 1 },
     fileFilter: (req, file, cb) => {
         const allowed = ["image/jpeg", "image/png", "image/jpg"];
         if (!allowed.includes(file.mimetype)) {
-           return cb(new Error("Solo se permiten archivos JPEG, PNG o JPG"));
+           return cb(new AppError("Solo se permiten archivos JPEG, PNG o JPG", 400));
         }
         cb(null, true);
-    } 
+    }
 });

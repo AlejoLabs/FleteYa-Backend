@@ -2,24 +2,18 @@ import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
 import type { CreateDriverPositionInput } from "../validators/driver_position_validator.js";
 
-export const createDriverPosition = async (data: CreateDriverPositionInput) => {
-    const user = await prisma.user.findUnique({ where: { id: data.id_driver } });
-
-    if (!user) {
-        throw new AppError("Usuario no encontrado", 404);
-    }
-
+export const createDriverPosition = async (idDriver: number, data: CreateDriverPositionInput) => {
     const point = `POINT(${data.lng} ${data.lat})`;
 
     await prisma.$executeRawUnsafe(`
         REPLACE INTO drivers_position (id_driver, position)
         VALUES (?, ST_GeomFromText(?, 4326))
     `,
-        data.id_driver,
+        idDriver,
         point
     );
 
-    return data;
+    return { id_driver: idDriver, lat: data.lat, lng: data.lng };
 }
 
 export const getDriverPosition = async (id_driver: number) => {

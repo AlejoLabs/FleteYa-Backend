@@ -1,13 +1,26 @@
-import e from "express";
 import {z} from "zod";
 
+// Límites de precio de un flete en pesos colombianos: evitan ofertas de $12 o valores absurdos
+export const MIN_FARE = 5000;
+export const MAX_FARE = 10000000;
+
+export const fareSchema = (field: string) => z.coerce.number()
+    .refine((val) => val >= MIN_FARE, {message: `${field} debe ser de al menos $${MIN_FARE.toLocaleString("es-CO")}`})
+    .refine((val) => val <= MAX_FARE, {message: `${field} no puede superar $${MAX_FARE.toLocaleString("es-CO")}`});
+
+export const latSchema = (field: string) => z.coerce.number().refine((val) => val >= -90 && val <= 90 && val !== 0, {message: `${field} no es válida`});
+export const lngSchema = (field: string) => z.coerce.number().refine((val) => val >= -180 && val <= 180 && val !== 0, {message: `${field} no es válida`});
+
+const ratingSchema = (field: string) => z.coerce.number().refine((val) => val >= 1 && val <= 5, {message: `${field} debe estar entre 1 y 5`});
+
 export const createClientRequestSchema = z.object({
-    id_client: z.coerce.number().refine((val) => val > 0, {message: "El id del cliente es obligatorio"}),
-    pickup_lat: z.coerce.number().refine((val) => val > 0, {message: "La latitud de recogida es obligatoria"}),
-    pickup_lng: z.coerce.number().refine((val) => val >= -180 && val <= 180, {message: "La longitud de recogida es obligatoria"}),
-    destination_lat: z.coerce.number().refine((val) => val > 0, {message: "La latitud de destino es obligatoria"}),
-    destination_lng: z.coerce.number().refine((val) => val >= -180 && val <= 180, {message: "La longitud de destino es obligatoria"}),
-    fare_offered: z.coerce.number().refine((val) => val > 0, {message: "La tarifa del viaje es obligatoria"}),
+    // El cliente sale del token; este campo se ignora y se conserva solo por compatibilidad con la app
+    id_client: z.coerce.number().optional(),
+    pickup_lat: latSchema("La latitud de recogida"),
+    pickup_lng: lngSchema("La longitud de recogida"),
+    destination_lat: latSchema("La latitud de destino"),
+    destination_lng: lngSchema("La longitud de destino"),
+    fare_offered: fareSchema("La tarifa ofrecida"),
     pickup_description: z.string().min(2, {message: "La descripción de recogida es obligatoria"}),
     destination_description: z.string().min(2, {message: "La descripción de destino es obligatoria"}),
     cargo_description: z.string().max(255, {message: "La descripción de carga no puede superar 255 caracteres"}).optional(),
@@ -19,24 +32,24 @@ export const createClientRequestSchema = z.object({
 
 export const assignDriverSchema = z.object({
     id: z.coerce.number().refine((val) => val > 0, {message: "El id de la solicitud de cliente es obligatorio"}),
-    fare_assigned: z.coerce.number().refine((val) => val > 0, {message: "La tarifa asignada es obligatoria"}),
+    // El valor asignado se toma de la oferta guardada; este campo se ignora
+    fare_assigned: z.coerce.number().optional(),
     id_driver_assigned: z.coerce.number().refine((val) => val > 0, {message: "El id del conductor asignado es obligatorio"}),
-    
 });
 
 export const updateClientRequestSchema = z.object({
     id: z.coerce.number().refine((val) => val > 0, {message: "El id de la solicitud de cliente es obligatorio"}),
-    status: z.string().min(2, {message: "El estado del viaje es obligatorio"}), 
+    status: z.enum(["ON_THE_WAY", "ARRIVED", "TRAVELING", "FINISHED"], {message: "El estado del viaje no es válido"}),
 });
 
 export const updateClientRatingSchema = z.object({
     id: z.coerce.number().refine((val) => val > 0, {message: "El id de la solicitud es obligatorio"}),
-    client_rating: z.coerce.number().refine((val) => val > 0, {message: "La calificacion del cliente es obligatoria"}),
+    client_rating: ratingSchema("La calificación del cliente"),
 });
 
 export const updateDriverRatingSchema = z.object({
     id: z.coerce.number().refine((val) => val > 0, {message: "El id de la solicitud es obligatorio"}),
-    driver_rating: z.coerce.number().refine((val) => val > 0, {message: "La calificacion del conductor es obligatoria"}),
+    driver_rating: ratingSchema("La calificación del conductor"),
 });
 
 

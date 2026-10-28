@@ -1,15 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
 import * as driverPositionService from "../services/driver_position.service.js";
-import { AppError } from "../utils/App.Error.js";
+import { getUserId } from "../utils/authorization.js";
 
 
 export const create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const data = req.body;
-        const driverPosition = await driverPositionService.createDriverPosition(data);
+        const driverPosition = await driverPositionService.createDriverPosition(getUserId(req), req.body);
         return res.status(201).json(driverPosition);
     } catch (err) {
-        next(err);    
+        next(err);
     }
 
 }
@@ -20,7 +19,7 @@ export const getDriverPosition = async (req: Request, res: Response, next: NextF
         const driverPosition = await driverPositionService.getDriverPosition(id_driver);
         return res.status(200).json(driverPosition);
     } catch (err) {
-        next(err);    
+        next(err);
     }
 
 }
@@ -32,7 +31,7 @@ export const getNearbyDrivers = async (req: Request, res: Response, next: NextFu
         const driverPositon = await driverPositionService.getNearbyDrivers(lat, lng);
         return res.status(200).json(driverPositon);
     } catch (err) {
-        next(err);    
+        next(err);
     }
 
 }
@@ -43,8 +42,7 @@ export const deleteDriverPosition = async (req: Request, res: Response, next: Ne
         await driverPositionService.deleteDriverPosition(id_driver);
         return res.status(200).json(true);
     } catch (err) {
-        next(err);    
+        next(err);
     }
 
 }
-

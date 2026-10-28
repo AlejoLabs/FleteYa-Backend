@@ -81,13 +81,14 @@ export const loginUser = async (data: LoginInput) => {
         }
     });
 
+    // Mismo mensaje si el correo no existe o la contraseña falla: así no se puede averiguar qué correos están registrados
     if (!user) {
-        throw new AppError("Usuario no encontrado", 404);
+        throw new AppError("Correo o contraseña incorrectos", 401);
     }
 
     const isPasswwordValid = await bcrypt.compare(data.password, user.password);
     if (!isPasswwordValid) {
-        throw new AppError("Contraseña incorrecta", 401);
+        throw new AppError("Correo o contraseña incorrectos", 401);
     }
 
     const token = generateToken({
