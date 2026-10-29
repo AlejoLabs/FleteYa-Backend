@@ -12,9 +12,9 @@ const STORAGE_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 // En memoria: el archivo se escribe en disco solo después de revisar permisos y que de verdad sea una imagen
-export const photoUpload = multer({
+export const makePhotoUpload = (maxFiles: number) => multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: MAX_PHOTO_BYTES, files: 1 },
+    limits: { fileSize: MAX_PHOTO_BYTES, files: maxFiles },
     fileFilter: (req, file, cb) => {
         if (!["image/jpeg", "image/jpg", "image/png"].includes(file.mimetype)) {
             return cb(new AppError("Solo se permiten fotos JPG o PNG", 400));
@@ -22,6 +22,8 @@ export const photoUpload = multer({
         cb(null, true);
     }
 });
+
+export const photoUpload = makePhotoUpload(1);
 
 // El tipo que manda el teléfono se puede falsificar: se revisan los primeros bytes del archivo
 const detectExtension = (buffer: Buffer): "jpg" | "png" | null => {

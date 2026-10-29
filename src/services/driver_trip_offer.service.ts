@@ -1,4 +1,5 @@
 import prisma from "../database/prismaClient.js";
+import { driverRatings, ratingOf } from "./ratings.service.js";
 import type { CreateDriverTripOfferInput } from "../validators/driver_trip_offer.validator.js";
 import { AppError } from "../utils/App.Error.js";
 import { deny } from "../utils/authorization.js";
@@ -120,6 +121,7 @@ export const getByClientRequest = async (idClientRequest: number) => {
             }
         }
     });
+    const ratings = await driverRatings(offers.map((offer) => offer.id_driver));
     return offers.map((offer) => ({
         id: offer.id,
         id_driver: offer.id_driver,
@@ -134,7 +136,7 @@ export const getByClientRequest = async (idClientRequest: number) => {
             id: offer.driver.id,
             name: offer.driver.name,
             lastname: offer.driver.lastname,
-            phone: offer.driver.phone,
+            rating: ratingOf(ratings, offer.id_driver),
             image: offer.driver.image ? `http://${process.env.HOST}:${process.env.PORT}${offer.driver.image}` : null,
         } : null,
         car: offer.driver.driverCarInfo ? {

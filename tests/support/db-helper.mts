@@ -2,6 +2,7 @@
 //   expire <id>              adelanta el vencimiento de una solicitud
 //   code <correo> <código>   crea un código de restablecimiento conocido
 //   google-user <correo>     crea una cuenta "de Google" sin contraseña
+//   age <id> <días>          hace que una solicitud parezca terminada hace N días
 //   delete <correo>...       borra cuentas de prueba y su vehículo
 import crypto from "crypto";
 import prisma from "../../src/database/prismaClient.js";
@@ -10,6 +11,8 @@ const [command, ...args] = process.argv.slice(2);
 
 if (command === "expire") {
     await prisma.clientRequests.update({ where: { id: Number(args[0]) }, data: { expires_at: new Date(Date.now() - 1000) } });
+} else if (command === "age") {
+    await prisma.$executeRaw`UPDATE client_requests SET update_at = NOW(3) - INTERVAL ${Number(args[1])} DAY WHERE id = ${Number(args[0])}`;
 } else if (command === "code") {
     const user = await prisma.user.findUniqueOrThrow({ where: { email: args[0] } });
     await prisma.passwordResetCode.create({

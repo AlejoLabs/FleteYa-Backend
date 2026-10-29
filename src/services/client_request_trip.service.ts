@@ -240,7 +240,7 @@ export const cancelClientRequest = async (userId: number, id: number, data: Canc
     return { id, status: "CANCELED", ...payload };
 }
 
-// El conductor califica al cliente y viceversa, y solo cuando el viaje terminó
+// El conductor califica al cliente y viceversa, solo cuando el viaje terminó y una sola vez
 export const updateClientRating = async (userId: number, data: UpdateClientRatingInput) => {
     const clientRequest = await findTripOrFail(data.id);
 
@@ -251,14 +251,14 @@ export const updateClientRating = async (userId: number, data: UpdateClientRatin
         throw new AppError("Solo se puede calificar un viaje finalizado", 409);
     }
 
-    const updatedClientRequest = await prisma.clientRequests.update({
-        where: { id: data.id },
-        data: {
-            client_rating: data.client_rating
-        }
+    const { count } = await prisma.clientRequests.updateMany({
+        where: { id: data.id, client_rating: null },
+        data: { client_rating: data.client_rating }
     });
-
-    return updatedClientRequest;
+    if (count === 0) {
+        throw new AppError("Ya calificaste a este cliente", 409);
+    }
+    return { id: data.id, client_rating: data.client_rating };
 }
 
 export const updateDriverRating = async (userId: number, data: UpdateDriverRatingInput) => {
@@ -271,12 +271,12 @@ export const updateDriverRating = async (userId: number, data: UpdateDriverRatin
         throw new AppError("Solo se puede calificar un viaje finalizado", 409);
     }
 
-    const updatedClientRequest = await prisma.clientRequests.update({
-        where: { id: data.id },
-        data: {
-            driver_rating: data.driver_rating
-        }
+    const { count } = await prisma.clientRequests.updateMany({
+        where: { id: data.id, driver_rating: null },
+        data: { driver_rating: data.driver_rating }
     });
-
-    return updatedClientRequest;
+    if (count === 0) {
+        throw new AppError("Ya calificaste a este conductor", 409);
+    }
+    return { id: data.id, driver_rating: data.driver_rating };
 }

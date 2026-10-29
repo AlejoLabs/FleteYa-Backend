@@ -3,6 +3,7 @@ import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
 import { vehicleRank } from "../utils/vehicles.js";
 import { ACTIVE_STATUSES } from "./client_request.shared.js";
+import { clientRatings, driverRatings, ratingOf } from "./ratings.service.js";
 
 // Consultas de solicitudes: las cercanas para el conductor, el detalle de una y los historiales
 
@@ -45,7 +46,7 @@ const normalizeBigInt = (obj: any): any => JSON.parse(
 );
 
 // Un conductor ve las solicitudes vigentes que caben en su vehículo, que no descartó y que no son suyas.
-// El celular del cliente no se muestra aquí: solo lo ve el conductor asignado
+// El celular del cliente no se muestra: cliente y conductor se hablan por el chat del viaje
 export const getNearbyClientRequests = async (idDriver: number, driverLat: number, driverLng: number) => {
     const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { vehicle_type: true } });
     const maxRank = vehicleRank(car?.vehicle_type ?? "CARRY") + 1; // FIELD() de MySQL empieza en 1
@@ -154,11 +155,13 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
     }
 
     const elements = body.rows?.[0]?.elements;
+    const ratings = await clientRatings(data.map((item) => item.id_client));
 
     const formatted = data.map((item, index) => ({
         ...formatCargo(item),
         client: {
             ...item.client,
+            rating: ratingOf(ratings, item.id_client),
             image: item.client.image ? `http://${process.env.HOST}:${process.env.PORT}${item.client.image}` : null
         },
         google_distance_matrix: {
@@ -221,13 +224,11 @@ export const getByClientRequest = async (id: number, viewerId: number) => {
                 JSON_OBJECT(
                     "name", U.name,
                     "lastname", U.lastname,
-                    "phone", U.phone,
                     "image", U.image
                 ) AS client,
                 JSON_OBJECT(
                     "name", D.name,
                     "lastname", D.lastname,
-                    "phone", D.phone,
                     "image", D.image
                 ) AS driver,
                 JSON_OBJECT(
@@ -257,15 +258,18 @@ export const getByClientRequest = async (id: number, viewerId: number) => {
 
     if (!data.length) return [];
 
+    const [clients, drivers] = await Promise.all([clientRatings([data[0].id_client]), driverRatings(data[0].id_driver_assigned ? [data[0].id_driver_assigned] : [])]);
 
     const formatted = data.map((item, index) => ({
         ...formatCargo(item),
         client: {
             ...item.client,
+            rating: ratingOf(clients, item.id_client),
             image: item.client.image ? `http://${process.env.HOST}:${process.env.PORT}${item.client.image}` : null
         },
         driver: {
             ...item.driver,
+            rating: ratingOf(drivers, item.id_driver_assigned),
             image: item.driver.image ? `http://${process.env.HOST}:${process.env.PORT}${item.driver.image}` : null
         }
     }));
@@ -303,13 +307,11 @@ export const getByClientAssigned = async (id_client: number) => {
             JSON_OBJECT(
                 'name', U.name,
                 'lastname', U.lastname,
-                'phone', U.phone,
                 'image', U.image
             ) AS client,
             JSON_OBJECT(
                 'name', D.name,
                 'lastname', D.lastname,
-                'phone', D.phone,
                 'image', D.image
             ) AS driver,
             JSON_OBJECT(
@@ -379,13 +381,11 @@ export const getByDriverAssigned = async (id_driver_assigned: number) => {
             JSON_OBJECT(
                 'name', U.name,
                 'lastname', U.lastname,
-                'phone', U.phone,
                 'image', U.image
             ) AS client,
             JSON_OBJECT(
                 'name', D.name,
                 'lastname', D.lastname,
-                'phone', D.phone,
                 'image', D.image
             ) AS driver,
             JSON_OBJECT(

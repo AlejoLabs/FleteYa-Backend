@@ -98,6 +98,21 @@ export const tripPhotoSchema = z.object({
     kind: z.enum(["CARGO", "PICKUP", "DELIVERY"], {message: "El tipo de foto debe ser CARGO, PICKUP o DELIVERY"}),
 });
 
+// Los mensajes del chat: texto sin espacios de sobra, de 1 a 500 caracteres
+export const tripMessageSchema = z.object({
+    text: z.string({message: "Escribe un mensaje"}).trim()
+        .min(1, {message: "Escribe un mensaje"})
+        .max(500, {message: "El mensaje puede tener hasta 500 caracteres"}),
+});
+
+// Va como campos de texto del formulario multipart, junto a las fotos
+export const incidentSchema = z.object({
+    kind: z.enum(["DAMAGE", "LOSS", "DELAY", "BEHAVIOR", "OTHER"], {message: "Elige qué pasó"}),
+    description: z.string({message: "Cuenta qué pasó"}).trim()
+        .min(10, {message: "Cuenta qué pasó con al menos 10 caracteres"})
+        .max(1000, {message: "La descripción puede tener hasta 1000 caracteres"}),
+});
+
 export const deliverSchema = z.object({
     code: z.string().trim().regex(/^\d{4}$/, {message: "El código de entrega tiene 4 dígitos"}),
 });
@@ -111,3 +126,4 @@ export type UpdateDriverRatingInput = z.infer<typeof updateDriverRatingSchema>;
 export type RaiseFareInput = z.infer<typeof raiseFareSchema>;
 export type CancelClientRequestInput = z.infer<typeof cancelClientRequestSchema>;
 export type DeliverInput = z.infer<typeof deliverSchema>;
+export type IncidentInput = z.infer<typeof incidentSchema>;

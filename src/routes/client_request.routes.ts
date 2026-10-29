@@ -1,10 +1,13 @@
 import express from "express";
 import { getTimeAndDistance, createClientRequest, getNearbyClientRequests, assignDriver, getByClientRequest, updateClientRequest, updateClientRating, updateDriverRating, getByDriverAssigned, getByClientAssigned, raiseFare, cancelClientRequest, dismissClientRequest, getMyActiveTrips, deliverClientRequest, confirmDelivery } from "../controllers/client_request.controller.js";
 import { deleteTripPhoto, getTripPhotoFile, listTripPhotos, uploadTripPhoto } from "../controllers/trip_photo.controller.js";
-import { photoUpload } from "../utils/photoStorage.js";
+import { listTripMessages, markTripMessagesRead, sendTripMessage } from "../controllers/trip_message.controller.js";
+import { createIncident, getIncidentPhotoFile, listMyIncidents } from "../controllers/incident.controller.js";
+import { MAX_INCIDENT_PHOTOS } from "../services/incident.service.js";
+import { makePhotoUpload, photoUpload } from "../utils/photoStorage.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { validateBody } from "../middlewares/validateBody.js";
-import { assignDriverSchema, cancelClientRequestSchema, createClientRequestSchema, deliverSchema, tripPhotoSchema, raiseFareSchema, updateClientRatingSchema, updateClientRequestSchema, updateDriverRatingSchema } from "../validators/client_request.validator.js";
+import { assignDriverSchema, cancelClientRequestSchema, createClientRequestSchema, deliverSchema, incidentSchema, tripMessageSchema, tripPhotoSchema, raiseFareSchema, updateClientRatingSchema, updateClientRequestSchema, updateDriverRatingSchema } from "../validators/client_request.validator.js";
 import { requireRole, requireSelfParam } from "../utils/authorization.js";
 
 
@@ -23,6 +26,14 @@ router.post("/:id/photos", authMiddleware, photoUpload.single("file"), validateB
 router.get("/:id/photos", authMiddleware, listTripPhotos);
 router.get("/:id/photos/:photoId", authMiddleware, getTripPhotoFile);
 router.delete("/:id/photos/:photoId", authMiddleware, deleteTripPhoto);
+// Chat del viaje
+router.get("/:id/messages", authMiddleware, listTripMessages);
+router.post("/:id/messages", authMiddleware, validateBody(tripMessageSchema), sendTripMessage);
+router.put("/:id/messages/read", authMiddleware, markTripMessagesRead);
+// Reportes de incidentes, con hasta 4 fotos en el campo "photos"
+router.post("/:id/incidents", authMiddleware, makePhotoUpload(MAX_INCIDENT_PHOTOS).array("photos", MAX_INCIDENT_PHOTOS), validateBody(incidentSchema), createIncident);
+router.get("/:id/incidents", authMiddleware, listMyIncidents);
+router.get("/:id/incidents/:incidentId/photos/:photoId", authMiddleware, getIncidentPhotoFile);
 router.get("/:origin_lat/:origin_lng/:destination_lat/:destination_lng", authMiddleware, getTimeAndDistance);
 router.post("/", authMiddleware, requireRole("CLIENT"), validateBody(createClientRequestSchema), createClientRequest);
 router.get("/:driver_lat/:driver_lng", authMiddleware, requireRole("DRIVER"), getNearbyClientRequests);

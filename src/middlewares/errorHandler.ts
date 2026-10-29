@@ -19,7 +19,9 @@ export const errorHandler = (
     if (err instanceof multer.MulterError) {
         const message = err.code === "LIMIT_FILE_SIZE"
             ? "La foto no puede pesar más de 5 MB"
-            : "No se pudo subir el archivo";
+            : err.code === "LIMIT_FILE_COUNT"
+                ? "Adjuntaste más fotos de las permitidas"
+                : "No se pudo subir el archivo";
         return res.status(400).json({ message, statusCode: 400 });
     }
 

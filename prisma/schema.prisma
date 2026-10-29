@@ -34,6 +34,8 @@ model User {
   driverPosition DriverPosition?
   passwordResetCodes PasswordResetCode[]
   tripPhotos TripPhoto[]
+  tripMessages TripMessage[]
+  incidentReports IncidentReport[]
 
 
   client ClientRequests[] @relation("client")
@@ -160,6 +162,8 @@ model ClientRequests {
   driverTripOffers DriverTripOffer[]
   dismissedBy DriverDismissedRequest[]
   photos TripPhoto[]
+  messages TripMessage[]
+  incidents IncidentReport[]
 
   @@index([status, expires_at])
   @@map("client_requests")
@@ -326,4 +330,68 @@ model VehiclePhoto {
 
   @@index([id_driver])
   @@map("vehicle_photos")
+}
+
+// Chat del viaje entre el cliente y el conductor asignado, para no tener que compartir el celular
+model TripMessage {
+  id Int @id @default(autoincrement())
+  id_client_request Int
+  id_sender Int
+  text String @db.VarChar(500)
+  // Cuándo lo leyó el otro; null = sin leer
+  read_at DateTime?
+  created_at DateTime @default(now())
+
+  client_request ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sender User @relation(fields: [id_sender], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_client_request, id])
+  @@map("trip_messages")
+}
+
+enum IncidentKind {
+  DAMAGE
+  LOSS
+  DELAY
+  BEHAVIOR
+  OTHER
+}
+
+// OPEN al crearlo; el administrador lo revisa y lo cierra desde el panel (Fase 8)
+enum IncidentStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+}
+
+// Daño, pérdida u otro problema que reporta el cliente o el conductor sobre un viaje
+model IncidentReport {
+  id Int @id @default(autoincrement())
+  id_client_request Int
+  id_reporter Int
+  kind IncidentKind
+  description String @db.VarChar(1000)
+  status IncidentStatus @default(OPEN)
+  created_at DateTime @default(now())
+  update_at DateTime @updatedAt
+
+  client_request ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reporter User @relation(fields: [id_reporter], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  photos IncidentPhoto[]
+
+  @@index([id_client_request, id_reporter])
+  @@index([status])
+  @@map("incident_reports")
+}
+
+model IncidentPhoto {
+  id Int @id @default(autoincrement())
+  id_incident Int
+  file_name String @db.VarChar(100)
+  created_at DateTime @default(now())
+
+  incident IncidentReport @relation(fields: [id_incident], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_incident])
+  @@map("incident_photos")
 }
