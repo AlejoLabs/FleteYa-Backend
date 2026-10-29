@@ -22,7 +22,7 @@ interface CargoSize {
     packages?: number | undefined;
 }
 
-// Las medidas son las del bulto más grande; el volumen total se estima multiplicándolo por el número de bultos
+// Las medidas son las del artículo más grande; el volumen total se estima multiplicándolo por el número de artículos
 export const requiredVehicleFor = (cargo: CargoSize): VehicleType => {
     const weight = cargo.weight_kg ?? 0;
     const longest = Math.max(cargo.length_cm ?? 0, cargo.width_cm ?? 0, cargo.height_cm ?? 0);

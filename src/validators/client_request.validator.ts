@@ -37,7 +37,7 @@ export const createClientRequestSchema = z.object({
     length_cm: z.coerce.number().refine((val) => val > 0, {message: "El largo debe ser mayor a 0"}).optional(),
 
     cargo_category: z.enum(["MUDANZA", "MERCANCIA", "MATERIALES", "MAQUINARIA", "ELECTRODOMESTICOS", "OTRO"], {message: "La categoría de carga no es válida"}).default("OTRO"),
-    packages: z.coerce.number().int().refine((val) => val >= 1 && val <= 500, {message: "El número de bultos debe estar entre 1 y 500"}).default(1),
+    packages: z.coerce.number().int().refine((val) => val >= 1 && val <= 500, {message: "El número de artículos debe estar entre 1 y 500"}).default(1),
     is_fragile: z.boolean().default(false),
     needs_cover: z.boolean().default(false),
     // El cliente puede pedir un vehículo más grande que el sugerido, nunca uno más pequeño
