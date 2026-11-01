@@ -8,12 +8,20 @@ const DRIVER = await testDriver();
 const CLIENT_EMAIL = process.env.TEST_CLIENT_EMAIL;
 
 // 1. Login: mismo mensaje con correo inexistente o contraseña mala
-const badEmail = await call("POST", "/auth/login", null, { email: "noexiste@x.com", password: TEST_PASSWORD });
+// Correo distinto en cada corrida: los fallos cuentan para el bloqueo por intentos
+const missingEmail = `noexiste-${Date.now()}@x.com`;
+const badEmail = await call("POST", "/auth/login", null, { email: missingEmail, password: TEST_PASSWORD });
 const badPass = await call("POST", "/auth/login", null, { email: CLIENT_EMAIL, password: "malaaa" });
 check("Login no revela si el correo existe", badEmail.status === 401 && badPass.status === 401 && badEmail.data.message === badPass.data.message, `${badEmail.status}/${badPass.status} "${badEmail.data.message}"`);
+for (let i = 0; i < 4; i++) await call("POST", "/auth/login", null, { email: missingEmail, password: TEST_PASSWORD });
+const locked = await call("POST", "/auth/login", null, { email: missingEmail, password: TEST_PASSWORD });
+check("Tras 5 fallos con el mismo correo: 429", locked.status === 429, `${locked.status}`);
 
 // 2. Sin token
 check("Sin token: 401", (await call("GET", "/client-requests/1")).status === 401);
+// La app reconoce este código para cerrar la sesión y volver al inicio (otros 401, como una contraseña mala, no)
+const expired = await call("GET", "/client-requests/1", "Bearer token.vencido.x");
+check("Token inválido: 401 con código SESSION_EXPIRED", expired.status === 401 && expired.data.code === "SESSION_EXPIRED", `${expired.status} ${expired.data.code}`);
 
 // 3. Cliente crea un flete; manda id_client de otro usuario y el backend lo ignora
 const tripBody = { id_client: DRIVER.id, pickup_lat: 4.61, pickup_lng: -74.19, destination_lat: 4.62, destination_lng: -74.14,

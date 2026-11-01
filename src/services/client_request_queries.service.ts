@@ -152,6 +152,8 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
                     return `${item.pickup_position.y},${item.pickup_position.x}`
                 }).join("|"),
                 unit: "metric",
+                // Textos en español ("15 min" y no "15 mins"); la app pone la coma decimal a los km
+                language: "es-419",
                 key: apiKey
             }
         });

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "./App.Error.js";
+import { SESSION_EXPIRED } from "../middlewares/authMiddleware.js";
 
 export type RoleId = "CLIENT" | "DRIVER" | "ADMIN";
 
@@ -14,7 +15,7 @@ export const deny = (userId: number | undefined, action: string, resource: strin
 export const getUserId = (req: Request): number => {
     const id = Number((req as any).user?.id);
     if (!Number.isInteger(id) || id <= 0) {
-        throw new AppError("Token no valido o expirado", 401);
+        throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
     }
     return id;
 }

@@ -8,6 +8,7 @@ import { generateToken } from "../config/jwt.js";
 import type { createUserInput } from "../validators/user.validator.js";
 import { sendMail } from "../utils/mailer.js";
 import type { RoleId } from "../utils/authorization.js";
+import { assertLoginAllowed, clearLoginFailures, registerLoginFailure } from "../utils/loginThrottle.js";
 
 const GOOGLE_ACCOUNT_MESSAGE = "Esta cuenta se creó con Google. Entra con Google o crea una contraseña con \"¿Olvidaste tu contraseña?\"";
 
@@ -103,18 +104,22 @@ export const registerDriver = async (data: RegisterDriverInput) => {
 }
 
 export const loginUser = async (data: LoginInput) => {
+    assertLoginAllowed(data.email);
     const user = await prisma.user.findUnique({ where: { email: data.email }, select: { id: true, password: true } });
 
     // Mismo mensaje si el correo no existe o la contraseña falla: así no se puede averiguar qué correos están registrados
     if (!user) {
+        registerLoginFailure(data.email);
         throw new AppError("Correo o contraseña incorrectos", 401);
     }
     if (user.password === null) {
         throw new AppError(GOOGLE_ACCOUNT_MESSAGE, 401);
     }
     if (!(await bcrypt.compare(data.password, user.password))) {
+        registerLoginFailure(data.email);
         throw new AppError("Correo o contraseña incorrectos", 401);
     }
+    clearLoginFailures(data.email);
     return buildAuthResponse(user.id);
 }
 

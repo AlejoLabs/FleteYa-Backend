@@ -56,7 +56,8 @@ export const sendPush = async (userId: number, message: PushMessage) => {
             token: user.notification_token,
             notification: { title: message.title, body: message.body },
             data,
-            android: { priority: "high", notification: { channelId: "trips" } },
+            // Ícono propio (silueta del camión, ya incluida en la app) y color de la marca en la barra de notificaciones
+            android: { priority: "high", notification: { channelId: "trips", icon: "notification_icon", color: "#1B2430" } },
         });
     } catch (err: any) {
         // El teléfono desinstaló la app o el token venció: se borra para no seguir intentando

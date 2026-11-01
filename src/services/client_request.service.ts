@@ -160,6 +160,8 @@ export const getTimeAndDistance = async (
                 origins: `${originLat},${originLng}`,
                 destinations: `${destinationLat},${destinationLng}`,
                 unit: "metric",
+                // Textos en español ("15 min" y no "15 mins"); la app pone la coma decimal a los km
+                language: "es-419",
                 key: apiKey
             }
         });

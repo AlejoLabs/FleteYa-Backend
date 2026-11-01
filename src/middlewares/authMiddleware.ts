@@ -2,6 +2,9 @@ import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/App.Error.js";
 import { verifyToken } from "../config/jwt.js";
 
+// La app lo distingue de otros 401 (como una contraseña equivocada) para cerrar la sesión y volver al inicio
+export const SESSION_EXPIRED = "SESSION_EXPIRED";
+
 export interface AuthRequest extends Request{
     user?: any
 }
@@ -10,7 +13,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        throw new AppError("Token no proporcionado o no es valido", 401);
+        throw new AppError("Token no proporcionado o no es valido", 401, SESSION_EXPIRED);
     }
 
     const token = authHeader.split(" ")[1];
@@ -21,6 +24,6 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
         next();
     }
     catch(err){
-        throw new AppError("Token no valido o expirado", 401);
+        throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
     }
 }
