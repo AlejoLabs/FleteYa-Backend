@@ -1,7 +1,7 @@
 {
-  "name": "apirestnodejs",
+  "name": "fleteya-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "API de FleteYa: fletes con precio negociado, pagos, chat y notificaciones (Node, Express, Prisma y MySQL)",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -9,11 +9,12 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "trips:cancel-stale": "tsx src/scripts/cancelStaleTrips.ts",
-    "users:hash-passwords": "tsx src/scripts/hashPlainPasswords.ts"
+    "users:hash-passwords": "tsx src/scripts/hashPlainPasswords.ts",
+    "db:seed": "tsx src/scripts/seedBaseData.ts"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Alejandro Beltrán",
+  "license": "MIT",
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.5.0",
     "@prisma/client": "^7.5.0",
