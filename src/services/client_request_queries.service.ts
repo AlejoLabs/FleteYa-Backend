@@ -3,6 +3,7 @@ import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
 import { canCarry, vehicleRank } from "../utils/vehicles.js";
 import { ACTIVE_STATUSES } from "./client_request.shared.js";
+import { MAX_DELIVERY_ATTEMPTS } from "./client_request_trip.service.js";
 import { clientRatings, driverRatings, ratingOf } from "./ratings.service.js";
 
 // Consultas de solicitudes: las cercanas para el conductor, el detalle de una y los historiales
@@ -291,8 +292,10 @@ export const getByClientRequest = async (id: number, viewerId: number) => {
 
     const trip = normalizeBigInt(formatted[0]);
     if (trip.id_client === viewerId) {
-        const { delivery_code } = await prisma.clientRequests.findUniqueOrThrow({ where: { id }, select: { delivery_code: true } });
+        const { delivery_code, delivery_code_attempts } = await prisma.clientRequests.findUniqueOrThrow({ where: { id }, select: { delivery_code: true, delivery_code_attempts: true } });
         trip.delivery_code = delivery_code;
+        // El conductor agotó los intentos del código (o el viaje no tiene): el cliente puede confirmar él mismo
+        trip.delivery_locked = !delivery_code || delivery_code_attempts >= MAX_DELIVERY_ATTEMPTS;
     }
     return trip;
 }

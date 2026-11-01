@@ -66,6 +66,8 @@ check("Con la foto pasa a TRAVELING", (await status(trip, "TRAVELING")).status =
 
 // 5. Entregar con código
 check("Ya no se termina cambiando el estado: 409", (await status(trip, "FINISHED")).status === 409);
+check("El cliente no cierra la entrega sin el código: 409", (await call("PUT", `/client-requests/${trip}/confirm-delivery`, CLIENT.token)).status === 409);
+check("El cliente todavía no tiene el respaldo", (await call("GET", `/client-requests/${trip}`, CLIENT.token)).data.delivery_locked === false);
 const deliver = (id, code, token = DRIVER.token) => call("POST", `/client-requests/${id}/deliver`, token, { code });
 check("Sin foto de entrega no se cierra: 409", (await deliver(trip, clientView.delivery_code)).status === 409);
 check("El conductor toma la foto de entrega", (await photo(trip, DRIVER.token, "DELIVERY")).status === 201);
@@ -90,6 +92,7 @@ const code2 = (await call("GET", `/client-requests/${trip2}`, CLIENT.token)).dat
 const bad2 = code2 === "0000" ? "1111" : "0000";
 for (let i = 0; i < 5; i++) await deliver(trip2, bad2);
 check("Tras 5 intentos ni el código correcto sirve: 429", (await deliver(trip2, code2)).status === 429);
+check("Agotados los intentos, el cliente ve el respaldo", (await call("GET", `/client-requests/${trip2}`, CLIENT.token)).data.delivery_locked === true);
 check("El conductor no confirma por el cliente: 403", (await call("PUT", `/client-requests/${trip2}/confirm-delivery`, DRIVER.token)).status === 403);
 check("El cliente confirma la entrega", (await call("PUT", `/client-requests/${trip2}/confirm-delivery`, CLIENT.token)).data?.status === "FINISHED");
 

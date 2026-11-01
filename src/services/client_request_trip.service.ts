@@ -12,7 +12,7 @@ import { formatPesos, sendPush } from "../utils/push.js";
 // Ciclo del viaje después de buscar: asignar conductor, avanzar estados, entregar, cancelar y calificar
 
 // Intentos para escribir el código de entrega; después, solo el cliente puede confirmar desde su app
-const MAX_DELIVERY_ATTEMPTS = 5;
+export const MAX_DELIVERY_ATTEMPTS = 5;
 
 const newDeliveryCode = () => crypto.randomInt(0, 10000).toString().padStart(4, "0");
 
@@ -183,6 +183,10 @@ export const deliverWithCode = async (userId: number, id: number, data: DeliverI
     if (!isValid) {
         await prisma.clientRequests.update({ where: { id }, data: { delivery_code_attempts: { increment: 1 } } });
         const left = MAX_DELIVERY_ATTEMPTS - trip.delivery_code_attempts - 1;
+        if (left <= 0) {
+            // El cliente ve en su app el botón para confirmar la entrega él mismo
+            notifyUser(trip.id_client, `delivery_locked/${id}`, { id_client_request: id });
+        }
         throw new AppError(left > 0
             ? `Código incorrecto. Te quedan ${left} ${left === 1 ? "intento" : "intentos"}`
             : "Código incorrecto. Se agotaron los intentos: pide al cliente que confirme la entrega desde su app", 400);
@@ -190,14 +194,24 @@ export const deliverWithCode = async (userId: number, id: number, data: DeliverI
     return finishTrip(id, trip.id_client, userId, "DRIVER");
 }
 
-// El cliente confirma que recibió la carga (por ejemplo, si él mismo la recibe o el conductor agotó los intentos)
+// Respaldo del código: el cliente confirma que recibió la carga solo si el conductor agotó los intentos
+// (o en viajes de antes de la Fase 5, que no tienen código). Así nadie cierra la entrega sin la prueba
 export const confirmDelivery = async (userId: number, id: number) => {
-    const trip = await findTripOrFail(id);
+    const trip = await prisma.clientRequests.findUnique({
+        where: { id },
+        select: { id_client: true, id_driver_assigned: true, status: true, delivery_code: true, delivery_code_attempts: true }
+    });
+    if (!trip) {
+        throw new AppError("La solicitud de viaje no existe", 404);
+    }
     if (trip.id_client !== userId) {
         throw deny(userId, "confirmar-entrega", `client_requests/${id}`);
     }
     if (trip.status !== "TRAVELING") {
         throw new AppError("Solo se confirma la entrega de una carga que va en camino", 409);
+    }
+    if (trip.delivery_code && trip.delivery_code_attempts < MAX_DELIVERY_ATTEMPTS) {
+        throw new AppError("La entrega se cierra con el código: díctaselo al conductor cuando recibas la carga", 409);
     }
     return finishTrip(id, userId, trip.id_driver_assigned!, "CLIENT");
 }

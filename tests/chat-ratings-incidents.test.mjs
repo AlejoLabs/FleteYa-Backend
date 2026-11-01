@@ -25,7 +25,9 @@ const finishTrip = async (id) => {
     await status(id, "ARRIVED");
     await uploadPhoto(`/client-requests/${id}/photos`, DRIVER.token, { kind: "PICKUP" });
     await status(id, "TRAVELING");
-    return call("PUT", `/client-requests/${id}/confirm-delivery`, CLIENT.token);
+    await uploadPhoto(`/client-requests/${id}/photos`, DRIVER.token, { kind: "DELIVERY" });
+    const { delivery_code } = (await call("GET", `/client-requests/${id}`, CLIENT.token)).data;
+    return call("POST", `/client-requests/${id}/deliver`, DRIVER.token, { code: delivery_code });
 };
 const isRating = (r) => r && typeof r.count === "number" && (r.average === null || (r.average >= 1 && r.average <= 5));
 
