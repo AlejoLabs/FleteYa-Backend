@@ -55,6 +55,10 @@ export const createClientRequestSchema = z.object({
     receiver_name: z.string().trim().max(100).optional(),
     receiver_phone: phoneSchema("El celular de quien recibe"),
 
+    // Cómo paga al terminar el viaje; el conductor lo ve antes de ofertar
+    payment_method: z.enum(["CASH", "WOMPI"], {message: "El método de pago no es válido"}).default("CASH"),
+    declared_value: z.coerce.number().refine((val) => val >= 0 && val <= 1000000000, {message: "El valor de la carga no es válido"}).optional(),
+
     // Sin fecha el flete es "Ahora"
     scheduled_at: z.coerce.date({message: "La fecha programada no es válida"})
         .refine((val) => val.getTime() >= Date.now() + MIN_SCHEDULE_AHEAD_MS, {message: "Programa el flete con al menos 1 hora de anticipación"})
@@ -65,6 +69,10 @@ export const createClientRequestSchema = z.object({
 
 export const raiseFareSchema = z.object({
     fare_offered: fareSchema("La nueva tarifa"),
+});
+
+export const paymentMethodSchema = z.object({
+    payment_method: z.enum(["CASH", "WOMPI"], {message: "El método de pago no es válido"}),
 });
 
 export const cancelClientRequestSchema = z.object({

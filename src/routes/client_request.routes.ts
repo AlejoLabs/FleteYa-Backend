@@ -3,11 +3,12 @@ import { getTimeAndDistance, createClientRequest, getNearbyClientRequests, assig
 import { deleteTripPhoto, getTripPhotoFile, listTripPhotos, uploadTripPhoto } from "../controllers/trip_photo.controller.js";
 import { listTripMessages, markTripMessagesRead, sendTripMessage } from "../controllers/trip_message.controller.js";
 import { createIncident, getIncidentPhotoFile, listMyIncidents } from "../controllers/incident.controller.js";
+import { changePaymentMethod, confirmCashPayment, getPaymentStatus, startOnlinePayment, verifyOnlinePayments } from "../controllers/payment.controller.js";
 import { MAX_INCIDENT_PHOTOS } from "../services/incident.service.js";
 import { makePhotoUpload, photoUpload } from "../utils/photoStorage.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { validateBody } from "../middlewares/validateBody.js";
-import { assignDriverSchema, cancelClientRequestSchema, createClientRequestSchema, deliverSchema, incidentSchema, tripMessageSchema, tripPhotoSchema, raiseFareSchema, updateClientRatingSchema, updateClientRequestSchema, updateDriverRatingSchema } from "../validators/client_request.validator.js";
+import { assignDriverSchema, cancelClientRequestSchema, paymentMethodSchema, createClientRequestSchema, deliverSchema, incidentSchema, tripMessageSchema, tripPhotoSchema, raiseFareSchema, updateClientRatingSchema, updateClientRequestSchema, updateDriverRatingSchema } from "../validators/client_request.validator.js";
 import { requireRole, requireSelfParam } from "../utils/authorization.js";
 
 
@@ -34,6 +35,12 @@ router.put("/:id/messages/read", authMiddleware, markTripMessagesRead);
 router.post("/:id/incidents", authMiddleware, makePhotoUpload(MAX_INCIDENT_PHOTOS).array("photos", MAX_INCIDENT_PHOTOS), validateBody(incidentSchema), createIncident);
 router.get("/:id/incidents", authMiddleware, listMyIncidents);
 router.get("/:id/incidents/:incidentId/photos/:photoId", authMiddleware, getIncidentPhotoFile);
+// Pago al terminar el viaje: en efectivo (lo confirma el conductor) o por la app (Wompi o el simulador)
+router.get("/:id/payment", authMiddleware, getPaymentStatus);
+router.put("/:id/payment/method", authMiddleware, validateBody(paymentMethodSchema), changePaymentMethod);
+router.post("/:id/payment/online", authMiddleware, startOnlinePayment);
+router.post("/:id/payment/online/verify", authMiddleware, verifyOnlinePayments);
+router.post("/:id/payment/cash", authMiddleware, requireRole("DRIVER"), confirmCashPayment);
 router.get("/:origin_lat/:origin_lng/:destination_lat/:destination_lng", authMiddleware, getTimeAndDistance);
 router.post("/", authMiddleware, requireRole("CLIENT"), validateBody(createClientRequestSchema), createClientRequest);
 router.get("/:driver_lat/:driver_lng", authMiddleware, requireRole("DRIVER"), getNearbyClientRequests);

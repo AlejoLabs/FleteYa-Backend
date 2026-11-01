@@ -16,6 +16,13 @@ const MAX_DELIVERY_ATTEMPTS = 5;
 
 const newDeliveryCode = () => crypto.randomInt(0, 10000).toString().padStart(4, "0");
 
+// La comisión va incluida en el valor acordado: el cliente paga el valor y el conductor recibe el valor menos la comisión
+const commissionFor = async (fare: number) => {
+    const values = await prisma.timeAndDistanceValues.findUnique({ where: { id: 1 }, select: { commission_rate: true } });
+    const rate = values?.commission_rate ?? 0;
+    return { rate, amount: Math.round(fare * rate) };
+}
+
 export const assignDriver = async (userId: number, data: AssignDriverInput) => {
     const clientRequest = await findTripOrFail(data.id);
 
@@ -35,6 +42,7 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
     if (!offer) {
         throw new AppError("Ese conductor no tiene una oferta vigente para este viaje", 400);
     }
+    const commission = await commissionFor(offer.fare_offered);
 
     const rejectedDrivers = await prisma.$transaction(async (tx) => {
         // updateMany con status CREATED y sin vencer evita que dos aceptaciones simultáneas asignen dos conductores
@@ -44,6 +52,8 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
                 id_driver_assigned: data.id_driver_assigned,
                 status: "ACCEPTED",
                 fare_assigned: offer.fare_offered,
+                commission_rate: commission.rate,
+                commission: commission.amount,
                 delivery_code: newDeliveryCode(),
                 delivery_code_attempts: 0,
             }

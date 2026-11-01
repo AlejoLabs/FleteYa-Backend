@@ -7,6 +7,7 @@ import clientRequestRouter from "./routes/client_request.routes.js";
 import driverPositionRouter from "./routes/driver_position.routes.js";
 import driverTripOfferRouter from "./routes/driver_trip_offer.routes.js";
 import driverCarInfoRouter from "./routes/driver_car_info.routes.js";
+import paymentSimulatorRouter from "./routes/payment_simulator.routes.js";
 import { errorHandler } from './middlewares/errorHandler.js';
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -30,6 +31,7 @@ app.use("/drivers-position", driverPositionRouter);
 app.use("/client-requests", clientRequestRouter);
 app.use("/driver-trip-offers", driverTripOfferRouter);
 app.use("/driver-car-info", driverCarInfoRouter);
+app.use("/payments/simulator", paymentSimulatorRouter);
 app.get("/", (req, res)=>{
     res.json({
         message: "Bienvenido a la API con Node.JS"

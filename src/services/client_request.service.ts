@@ -4,6 +4,7 @@ import { AppError } from "../utils/App.Error.js";
 import { deny } from "../utils/authorization.js";
 import type { CreateClientRequestInput, RaiseFareInput } from "../validators/client_request.validator.js";
 import { biggerVehicle, requiredVehicleFor } from "../utils/vehicles.js";
+import type { VehicleType } from "../generated/prisma/enums.js";
 import { notifyDrivers, notifyUser } from "../sockets/socketHandler.js";
 import { SEARCH_DURATION_MS, SCHEDULED_CLOSE_BEFORE_MS, findTripOrFail } from "./client_request.shared.js";
 
@@ -79,6 +80,8 @@ export const createClientRequest = async (data: CreateClientRequestInput & { id_
                     receiver_phone: data.receiver_phone || null,
                     scheduled_at: data.scheduled_at ?? null,
                     expires_at: expiresAt,
+                    payment_method: data.payment_method,
+                    declared_value: data.declared_value ?? null,
                 }
             });
             return id;
@@ -138,7 +141,8 @@ export const getTimeAndDistance = async (
     destinationLat: number,
     destinationLng: number,
     weight: number,
-    size: number
+    size: number,
+    vehicle: VehicleType
 ) => {
 
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -177,17 +181,20 @@ export const getTimeAndDistance = async (
     const km = distanceValue / 1000; // convertir a kilómetros
     const min = durationValue / 60; // convertir a minutos
 
-    const values = await prisma.timeAndDistanceValues.findUnique({
-        where: { id: 1 }
-    });
+    const [values, rate] = await Promise.all([
+        prisma.timeAndDistanceValues.findUnique({ where: { id: 1 } }),
+        prisma.vehicleRate.findUnique({ where: { vehicle_type: vehicle } }),
+    ]);
 
-    if (!values) {
+    if (!values || !rate) {
         throw new AppError("Valores de la tarifa no configurados", 500);
     }
 
+    // Un vehículo más grande tiene una base mayor y cobra más por kilómetro y por minuto.
+    // Cubre solo el transporte: la ayuda para cargar y descargar se negocia en la oferta
     const recommendedValue =
-        (values.km_value * km)
-        + (values.min_value * min)
+        rate.base_fare
+        + ((values.km_value * km) + (values.min_value * min)) * rate.km_factor
         + (values.weight_rate * weight)
         + (values.size_rate * size);
 
@@ -202,7 +209,9 @@ export const getTimeAndDistance = async (
         },
         origin_address: body.origin_addresses?.[0] || "",
         destination_address: body.destination_addresses?.[0] || "",
-        recommended_value: recommendedValue
+        vehicle_type: vehicle,
+        recommended_value: recommendedValue,
+        commission_rate: values.commission_rate
     }
 
 }

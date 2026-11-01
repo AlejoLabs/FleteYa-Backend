@@ -9,7 +9,7 @@ import prisma from "../database/prismaClient.js";
 
 export type PushType =
     | "NEW_OFFER" | "DRIVER_ASSIGNED" | "DRIVER_ARRIVED" | "CARGO_PICKED_UP" | "DELIVERED"
-    | "TRIP_CANCELED" | "SCHEDULED_REMINDER" | "DOCUMENTS_EXPIRING" | "CHAT_MESSAGE";
+    | "TRIP_CANCELED" | "SCHEDULED_REMINDER" | "DOCUMENTS_EXPIRING" | "CHAT_MESSAGE" | "TRIP_PAID";
 
 interface PushMessage {
     title: string;

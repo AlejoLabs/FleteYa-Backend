@@ -88,8 +88,19 @@ model TimeAndDistanceValues {
   min_value   Float
   weight_rate Float
   size_rate   Float
+  // Parte del valor acordado que se queda FleteYa (0.1 = 10 %). Cada viaje guarda la suya al asignarse
+  commission_rate Float @default(0.1)
 
   @@map("time_and_distance_values")
+}
+
+// Tarifa de cada tipo de vehículo para el precio sugerido: un valor base más un factor sobre distancia y tiempo
+model VehicleRate {
+  vehicle_type VehicleType @id
+  base_fare    Float
+  km_factor    Float
+
+  @@map("vehicle_rates")
 }
 
 model ClientRequests {
@@ -145,6 +156,15 @@ model ClientRequests {
   canceled_by Int?
   cancel_reason String? @db.VarChar(255)
 
+  // Pago: se cobra al terminar el viaje, en efectivo o por Wompi. La comisión se fija al asignar el conductor,
+  // para que un cambio de tarifa no altere viajes ya acordados. paid_at null = sin pagar
+  payment_method PaymentMethod @default(CASH)
+  commission_rate Float?
+  commission Float?
+  paid_at DateTime?
+  // Valor aproximado de la carga que declara el cliente. Informativo, base para un seguro futuro
+  declared_value Float?
+
   // Prueba de entrega: código de 4 dígitos que quien recibe le dicta al conductor. Solo lo ve el cliente
   delivery_code String? @db.Char(4)
   delivery_code_attempts Int @default(0)
@@ -164,6 +184,7 @@ model ClientRequests {
   photos TripPhoto[]
   messages TripMessage[]
   incidents IncidentReport[]
+  payments Payment[]
 
   @@index([status, expires_at])
   @@map("client_requests")
@@ -194,6 +215,41 @@ enum VehicleType {
   ESTACAS
   FURGON
   CAMION
+}
+
+enum PaymentMethod {
+  CASH
+  WOMPI
+}
+
+// Los mismos estados de una transacción de Wompi; el efectivo nace APPROVED cuando el conductor lo confirma
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  VOIDED
+  ERROR
+}
+
+// Cada intento de pago de un viaje. Un pago rechazado deja su fila y el cliente puede intentar otra vez con otra referencia
+model Payment {
+  id Int @id @default(autoincrement())
+  id_client_request Int
+  // Referencia única que viaja a Wompi y vuelve en la transacción
+  reference String @unique @db.VarChar(64)
+  method PaymentMethod
+  amount Int
+  status PaymentStatus @default(PENDING)
+  wompi_transaction_id String? @db.VarChar(64)
+  // NEQUI, CARD, PSE, BANCOLOMBIA_TRANSFER... según lo que eligió el cliente en el checkout
+  wompi_method String? @db.VarChar(40)
+  created_at DateTime @default(now())
+  update_at DateTime @updatedAt
+
+  clientRequest ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([id_client_request, created_at])
+  @@map("payments")
 }
 
 enum DriverApprovalStatus {

@@ -5,6 +5,8 @@ import * as clientRequestQueriesService from "../services/client_request_queries
 import { assertTripParticipant } from "../services/client_request.shared.js";
 import { AppError } from "../utils/App.Error.js";
 import { getUserId } from "../utils/authorization.js";
+import { VEHICLE_ORDER } from "../utils/vehicles.js";
+import type { VehicleType } from "../generated/prisma/enums.js";
 
 
 export const createClientRequest = async (req: Request, res: Response, next: NextFunction) => {
@@ -154,13 +156,20 @@ export const getTimeAndDistance = async (req: Request, res: Response, next: Next
             throw new AppError("El tamaño (size) es obligatorio y debe ser mayor a 0", 400);
         }
 
+        // Sin vehículo (versiones viejas de la app) se cotiza con el más pequeño
+        const vehicle = (req.query.vehicle ?? "CARRY") as VehicleType;
+        if (!VEHICLE_ORDER.includes(vehicle)) {
+            throw new AppError("El tipo de vehículo no es válido", 400);
+        }
+
         const data = await clientRequestService.getTimeAndDistance(
             originLat,
             originLng,
             destinationLat,
             destinationLng,
             weight,
-            size
+            size,
+            vehicle
         );
         return res.status(200).json(data);
     } catch (err) {
