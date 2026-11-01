@@ -1,7 +1,7 @@
 import axios from "axios";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
-import { vehicleRank } from "../utils/vehicles.js";
+import { canCarry, vehicleRank } from "../utils/vehicles.js";
 import { ACTIVE_STATUSES } from "./client_request.shared.js";
 import { clientRatings, driverRatings, ratingOf } from "./ratings.service.js";
 
@@ -50,10 +50,13 @@ const normalizeBigInt = (obj: any): any => JSON.parse(
 // Un conductor ve las solicitudes vigentes que caben en su vehículo, que no descartó y que no son suyas.
 // El celular del cliente no se muestra: cliente y conductor se hablan por el chat del viaje
 export const getNearbyClientRequests = async (idDriver: number, driverLat: number, driverLng: number) => {
-    const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { vehicle_type: true } });
-    const maxRank = vehicleRank(car?.vehicle_type ?? "CARRY") + 1; // FIELD() de MySQL empieza en 1
+    const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { vehicle_type: true, capacity_kg: true, capacity_m3: true } });
+    const vehicle = car ?? { vehicle_type: "CARRY" as const, capacity_kg: null, capacity_m3: null };
+    // Con capacidad propia declarada, la base trae también las de vehículos más grandes y se filtran abajo por tamaño
+    const hasOwnCapacity = vehicle.capacity_kg !== null || vehicle.capacity_m3 !== null;
+    const maxRank = hasOwnCapacity ? 4 : vehicleRank(vehicle.vehicle_type) + 1; // FIELD() de MySQL empieza en 1
 
-    const data = await prisma.$queryRaw<any[]>`
+    const rows = await prisma.$queryRaw<any[]>`
             SELECT
                 CR.id,
                 CR.id_client,
@@ -129,6 +132,10 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
             LIMIT 50
     `;
 
+    const data = rows.filter((row) => canCarry(vehicle, {
+        weight_kg: row.weight_kg ?? undefined, length_cm: row.length_cm ?? undefined, width_cm: row.width_cm ?? undefined,
+        height_cm: row.height_cm ?? undefined, packages: row.packages ?? undefined, required_vehicle: row.required_vehicle,
+    }));
     if (!data.length) return [];
 
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;

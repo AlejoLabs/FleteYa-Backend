@@ -1,5 +1,5 @@
 import prisma from "../database/prismaClient.js";
-import type { CreateDriverCarInfoInput } from "../validators/driver_car_info.validator.js";
+import { isHeavyLicense, type CreateDriverCarInfoInput, type UpdateDocumentsInput, type UpdateVehicleInput } from "../validators/driver_car_info.validator.js";
 import { AppError } from "../utils/App.Error.js";
 
 export const createDriverCarInfo = async (idDriver: number, data: CreateDriverCarInfoInput) => {
@@ -37,9 +37,57 @@ export const getByDriver = async (idDriver: number, viewerId: number) => {
     if (viewerId === idDriver) {
         return car;
     }
-    const { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, approval_status } = car;
-    return { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, approval_status };
+    const { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, capacity_kg, capacity_m3, approval_status } = car;
+    return { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, capacity_kg, capacity_m3, approval_status };
 };
+
+const findMyCar = async (idDriver: number) => {
+    const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver } });
+    if (!car) {
+        throw new AppError("Primero registra tu vehículo", 404);
+    }
+    return car;
+}
+
+// El conductor cambia de vehículo o corrige sus datos. Un camión pide licencia B2 o C2 en adelante
+export const updateMyVehicle = async (idDriver: number, data: UpdateVehicleInput) => {
+    const car = await findMyCar(idDriver);
+    if (data.vehicle_type === "CAMION" && !isHeavyLicense(car.license_category)) {
+        throw new AppError("Para camión necesitas licencia B2 o C2 en adelante: actualiza primero tus documentos", 409);
+    }
+    return prisma.driverCarInfo.update({
+        where: { id_driver: idDriver },
+        data: {
+            vehicle_type: data.vehicle_type,
+            brand: data.brand,
+            color: data.color,
+            plate: data.plate,
+            model_year: data.model_year,
+            is_covered: data.is_covered,
+            capacity_kg: data.capacity_kg ?? null,
+            capacity_m3: data.capacity_m3 ?? null,
+        }
+    });
+}
+
+// Renovó la licencia, el SOAT o la técnico-mecánica. El aviso de vencimiento vuelve a contar desde cero
+export const updateMyDocuments = async (idDriver: number, data: UpdateDocumentsInput) => {
+    const car = await findMyCar(idDriver);
+    if (car.vehicle_type === "CAMION" && !isHeavyLicense(data.license_category)) {
+        throw new AppError("Para camión necesitas licencia B2 o C2 en adelante", 400);
+    }
+    const updated = await prisma.driverCarInfo.update({
+        where: { id_driver: idDriver },
+        data: {
+            license_category: data.license_category,
+            license_expires_at: data.license_expires_at,
+            soat_expires_at: data.soat_expires_at,
+            techno_expires_at: data.techno_expires_at ?? null,
+            documents_reminded_at: null,
+        }
+    });
+    return documentsStatus(updated);
+}
 
 // Se avisa desde 30 días antes del vencimiento
 export const EXPIRING_SOON_DAYS = 30;

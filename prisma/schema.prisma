@@ -328,6 +328,9 @@ model DriverCarInfo {
   model_year Int?
   // Carrocería cerrada (furgón, carpa) o abierta (estacas, platón)
   is_covered Boolean @default(false)
+  // Capacidad real cuando el vehículo es más grande que el típico de su tipo (un furgón de 30 m³). null = la típica
+  capacity_kg Int?
+  capacity_m3 Float?
 
   // Documentos con su vencimiento; la app avisa antes de que venzan
   license_number String? @db.VarChar(30)

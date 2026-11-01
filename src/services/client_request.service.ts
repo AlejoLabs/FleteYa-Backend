@@ -7,6 +7,7 @@ import { biggerVehicle, requiredVehicleFor } from "../utils/vehicles.js";
 import type { VehicleType } from "../generated/prisma/enums.js";
 import { notifyDrivers, notifyUser } from "../sockets/socketHandler.js";
 import { SEARCH_DURATION_MS, SCHEDULED_CLOSE_BEFORE_MS, findTripOrFail } from "./client_request.shared.js";
+import { alertNearbyDrivers } from "./request_alerts.service.js";
 
 // Crear la solicitud y negociarla mientras busca conductor: subir el precio, "No me interesa" y la ruta sugerida
 
@@ -87,6 +88,9 @@ export const createClientRequest = async (data: CreateClientRequestInput & { id_
             return id;
         })
 
+        // La lista y el inicio de los conductores se actualizan al instante; los que tienen la app cerrada reciben push
+        notifyDrivers("created_client_request", { id_client_request: result });
+        void alertNearbyDrivers(result);
         return result;
     } catch (e) {
         throw new AppError(`Error al crear la solicitud de viaje: ${e}`, 500);

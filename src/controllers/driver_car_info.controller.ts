@@ -31,3 +31,19 @@ export const getMyDocuments = async (req: Request, res: Response, next: NextFunc
         next(err);
     }
 }
+
+export const updateMyVehicle = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        return res.status(200).json(await driverCarInfoService.updateMyVehicle(getUserId(req), req.body));
+    } catch (err) {
+        next(err);
+    }
+}
+
+export const updateMyDocuments = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        return res.status(200).json(await driverCarInfoService.updateMyDocuments(getUserId(req), req.body));
+    } catch (err) {
+        next(err);
+    }
+}

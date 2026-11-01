@@ -3,7 +3,7 @@ import { driverRatings, ratingOf } from "./ratings.service.js";
 import type { CreateDriverTripOfferInput } from "../validators/driver_trip_offer.validator.js";
 import { AppError } from "../utils/App.Error.js";
 import { deny } from "../utils/authorization.js";
-import { vehicleRank } from "../utils/vehicles.js";
+import { canCarry } from "../utils/vehicles.js";
 import { notifyUser } from "../sockets/socketHandler.js";
 import { formatPesos, sendPush } from "../utils/push.js";
 
@@ -11,7 +11,7 @@ import { formatPesos, sendPush } from "../utils/push.js";
 export const createDriverTripOffer = async (idDriver: number, data: CreateDriverTripOfferInput) => {
     const clientRequest = await prisma.clientRequests.findUnique({
         where: { id: data.id_client_request },
-        select: { id_client: true, status: true, expires_at: true, required_vehicle: true }
+        select: { id_client: true, status: true, expires_at: true, required_vehicle: true, weight_kg: true, length_cm: true, width_cm: true, height_cm: true, packages: true }
     });
     if (!clientRequest) {
         throw new AppError("La solicitud de viaje no existe", 404);
@@ -23,8 +23,12 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
         throw new AppError("No puedes ofertar en tu propio viaje", 400);
     }
 
-    const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { vehicle_type: true } });
-    if (vehicleRank(car?.vehicle_type ?? "CARRY") < vehicleRank(clientRequest.required_vehicle)) {
+    const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { vehicle_type: true, capacity_kg: true, capacity_m3: true } });
+    const cargo = {
+        weight_kg: clientRequest.weight_kg ?? undefined, length_cm: clientRequest.length_cm ?? undefined, width_cm: clientRequest.width_cm ?? undefined,
+        height_cm: clientRequest.height_cm ?? undefined, packages: clientRequest.packages, required_vehicle: clientRequest.required_vehicle,
+    };
+    if (!canCarry(car ?? { vehicle_type: "CARRY", capacity_kg: null, capacity_m3: null }, cargo)) {
         throw new AppError("Esta carga no cabe en tu vehículo", 409);
     }
 

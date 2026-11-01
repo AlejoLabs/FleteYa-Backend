@@ -152,18 +152,37 @@ interface ResultOptions {
     amountCents: number;
 }
 
+// Enlace que abre la app (esquema fleteya, registrado en el AndroidManifest); la app verifica el pago al volver
+export const appReturnLink = (reference: string) => `fleteya://pago/${encodeURIComponent(reference)}`;
+
+const RETURN_STYLE = `text-decoration:none;display:block;text-align:center`;
+
+// Botón para volver a la app y, a los pocos segundos, la vuelta automática
+const returnToApp = (reference: string, delayMs: number) => `
+<a class="pay" style="${RETURN_STYLE}" href="${appReturnLink(reference)}">Volver a FleteYa</a>
+<script>setTimeout(function () { window.location.href = ${JSON.stringify(appReturnLink(reference))}; }, ${delayMs});</script>`;
+
 export const resultPage = ({ approved, reference, transactionId, description, amountCents }: ResultOptions) => layout(`
 <div class="card center">
   <div class="badge ${approved ? "ok" : "bad"}" aria-hidden="true">${approved ? "✓" : "✕"}</div>
   <h2 style="margin:0">${approved ? "Pago aprobado" : "Pago rechazado"}</h2>
-  <p class="muted">${approved ? "Ya puedes volver a FleteYa: el pago se confirma solo." : "Vuelve a FleteYa para intentar otra vez o pagar en efectivo."}</p>
+  <p class="muted">${approved ? "Te llevamos de vuelta a FleteYa para calificar el servicio." : "Vuelve a FleteYa para intentar otra vez o pagar en efectivo."}</p>
   <dl>
     <dt>Valor</dt><dd>${pesos(amountCents)}</dd>
     <dt>Medio</dt><dd>${escapeHtml(description)}</dd>
     <dt>Referencia</dt><dd>${escapeHtml(reference)}</dd>
     <dt>Transacción</dt><dd>${escapeHtml(transactionId)}</dd>
   </dl>
-</div>`);
+</div>
+${returnToApp(reference, approved ? 2500 : 4000)}`);
+
+// Página a la que Wompi redirige al terminar su checkout (redirect-url): solo devuelve a la app
+export const wompiReturnPage = (reference: string) => layout(`
+<div class="card center">
+  <h2 style="margin:0">Volviendo a FleteYa…</h2>
+  <p class="muted">Ahí verás el resultado de tu pago.</p>
+</div>
+${returnToApp(reference, 300)}`);
 
 export const messagePage = (title: string, text: string) => layout(`
 <div class="card"><h2 style="margin:0">${escapeHtml(title)}</h2><p class="muted">${escapeHtml(text)}</p></div>`);

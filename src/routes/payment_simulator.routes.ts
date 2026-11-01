@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response } from "express";
 import { getSimulatedPayment, startSimulatedPayment } from "../utils/paymentGateway.js";
 import { evaluateSimulatorForm } from "../utils/simulatorTestData.js";
-import { checkoutPage, messagePage, processingPage, resultPage } from "./payment_simulator.page.js";
+import { checkoutPage, messagePage, processingPage, resultPage, wompiReturnPage } from "./payment_simulator.page.js";
 
 // Pasarela de prueba: hace las veces del checkout de Wompi mientras no haya llaves. Pide tarjeta, Nequi o PSE,
 // solo acepta los datos de prueba, muestra "procesando" y un comprobante.
@@ -51,6 +51,12 @@ router.post("/:reference", (req: Request, res: Response) => {
     startSimulatedPayment(reference, result.status, result.method, result.description);
     // Patrón post-redirect-get: recargar la página no reenvía el formulario
     return res.redirect(303, req.originalUrl);
+});
+
+// Al terminar el checkout de Wompi: devuelve a la app, que pregunta el resultado al backend
+export const paymentReturnRouter = express.Router();
+paymentReturnRouter.get("/:reference", (req: Request, res: Response) => {
+    res.send(wompiReturnPage(String(req.params.reference)));
 });
 
 export default router;

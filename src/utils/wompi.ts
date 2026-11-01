@@ -49,6 +49,8 @@ export const checkoutUrl = (reference: string, amountInCents: number) => {
         "amount-in-cents": String(amountInCents),
         reference,
         "signature:integrity": signature,
+        // Al terminar, Wompi lleva al cliente a esta página, que lo devuelve a la app
+        "redirect-url": `http://${process.env.HOST}:${process.env.PORT}/payments/return/${encodeURIComponent(reference)}`,
     });
     return `${CHECKOUT_URL}?${params.toString()}`;
 }
