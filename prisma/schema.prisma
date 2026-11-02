@@ -43,6 +43,14 @@ model User {
   driverTripOffers DriverTripOffer[] @relation("DriverTripOffers")
   driverCarInfo DriverCarInfo?
   dismissedRequests DriverDismissedRequest[]
+  adminActions AdminAction[] @relation("admin")
+
+  // ACTIVE: usa la app. SUSPENDED: el admin la bloqueó; cada petición y su socket se cortan al instante
+  status UserStatus @default(ACTIVE)
+  // Motivo de la suspensión (lo ve la persona al intentar entrar)
+  status_reason String? @db.VarChar(255)
+  // Datos personales borrados a pedido del usuario (Ley 1581): los viajes se conservan sin nombre, correo ni celular
+  anonymized_at DateTime?
 
   @@map("users")
 
@@ -162,6 +170,9 @@ model ClientRequests {
   commission_rate Float?
   commission Float?
   paid_at DateTime?
+  // Viaje en efectivo: el conductor se quedó con todo y le debe la comisión a FleteYa hasta que el admin la liquida.
+  // En los pagos por la app la comisión se retiene sola
+  commission_settled_at DateTime?
   // Valor aproximado de la carga que declara el cliente. Informativo, base para un seguro futuro
   declared_value Float?
 
@@ -258,6 +269,28 @@ enum DriverApprovalStatus {
   REJECTED
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+// Cada acción del panel de administración: quién hizo qué, sobre qué y cuándo
+model AdminAction {
+  id          Int      @id @default(autoincrement())
+  id_admin    Int
+  // SUSPEND_USER, APPROVE_DRIVER, UPDATE_RATES, ...
+  action      String   @db.VarChar(40)
+  target_type String   @db.VarChar(30)
+  target_id   Int?
+  detail      String?  @db.VarChar(500)
+  created_at  DateTime @default(now())
+
+  admin User @relation("admin", fields: [id_admin], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([created_at])
+  @@map("admin_actions")
+}
+
 // Código de 6 dígitos para restablecer la contraseña. Se guarda solo su hash; vence y tiene intentos limitados
 model PasswordResetCode {
   id Int @id @default(autoincrement())
@@ -340,8 +373,12 @@ model DriverCarInfo {
   techno_expires_at DateTime?
   property_card_number String? @db.VarChar(30)
 
-  // Para la demo se aprueban solos; en la Fase 8 el admin los verifica desde el panel
-  approval_status DriverApprovalStatus @default(APPROVED)
+  // Los conductores nuevos esperan a que el admin revise vehículo y documentos. Solo los APPROVED con documentos
+  // vigentes ven y ofertan fletes (los que ya existían antes de la Fase 8 quedaron aprobados)
+  approval_status DriverApprovalStatus @default(PENDING)
+  // Motivo del rechazo, que el conductor ve en la app
+  approval_note String? @db.VarChar(255)
+  reviewed_at DateTime?
 
   // Último aviso push de documentos por vencer; se repite como mucho una vez por semana
   documents_reminded_at DateTime?

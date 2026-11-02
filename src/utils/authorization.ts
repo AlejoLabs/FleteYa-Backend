@@ -1,9 +1,30 @@
 import type { Request, Response, NextFunction } from "express";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "./App.Error.js";
-import { SESSION_EXPIRED } from "../middlewares/authMiddleware.js";
+
+// Códigos que la app reconoce para cerrar la sesión y volver al inicio (otros 401, como una contraseña equivocada, no)
+export const SESSION_EXPIRED = "SESSION_EXPIRED";
+export const ACCOUNT_SUSPENDED = "ACCOUNT_SUSPENDED";
 
 export type RoleId = "CLIENT" | "DRIVER" | "ADMIN";
+
+export const suspendedError = (reason: string | null) =>
+    new AppError(`Tu cuenta está suspendida${reason ? `: ${reason}` : ""}. Si crees que es un error, escríbenos a soporte`, 403, ACCOUNT_SUSPENDED);
+
+// El estado de la cuenta se consulta en cada petición, como los roles: una suspensión corta al instante,
+// aunque el token todavía no haya vencido. Una cuenta anonimizada ya no existe para la app
+export const assertActiveAccount = async (userId: number) => {
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { status: true, status_reason: true, anonymized_at: true } });
+    if (!user || user.anonymized_at) {
+        throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
+    }
+    if (user.status === "SUSPENDED") {
+        throw suspendedError(user.status_reason);
+    }
+}
 
 // Cada acceso denegado queda registrado con quién lo intentó y sobre qué recurso
 export const deny = (userId: number | undefined, action: string, resource: string): AppError => {

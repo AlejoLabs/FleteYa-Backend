@@ -121,7 +121,10 @@ events.length = 0;
 let expired = false;
 for (let i = 0; i < 40 && !expired; i++) { await wait(1000); expired = got("client", `client_request_expired/${toExpire}`, toExpire); }
 check("Cliente recibe que la búsqueda venció", expired);
-check("Conductores la sacan de la lista", got("driver", "client_request_removed", toExpire));
+// El aviso a los conductores sale justo después del del cliente: se le da un momento para llegar
+let removed = false;
+for (let i = 0; i < 10 && !removed; i++) { removed = got("driver", "client_request_removed", toExpire); if (!removed) await wait(200); }
+check("Conductores la sacan de la lista", removed);
 check("Asignar una vencida: 400/409", [400, 409].includes((await call("PUT", "/client-requests/updateDriverAssigned", CLIENT.token, { id: toExpire, id_driver_assigned: DRIVER.id })).status));
 
 // Limpieza: cancela lo que quedó abierto

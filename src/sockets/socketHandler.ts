@@ -2,8 +2,9 @@ import {Server, Socket} from "socket.io";
 import {Server as HttpServer} from "http";
 import { AppError } from "../utils/App.Error.js";
 import { verifyToken } from "../config/jwt.js";
-import { hasRole } from "../utils/authorization.js";
+import { assertActiveAccount, hasRole } from "../utils/authorization.js";
 import prisma from "../database/prismaClient.js";
+import { driverBlockReason, ELIGIBILITY_SELECT } from "../services/driver_eligibility.service.js";
 
 let io: Server;
 
@@ -42,8 +43,16 @@ export const initializeSocket = (server: HttpServer) => {
             const decoded: any = verifyToken(token);
             const userId = Number(decoded?.id);
             if (!Number.isInteger(userId) || userId <= 0) throw new Error("token sin id");
+            // Una cuenta suspendida o anonimizada no se conecta
+            await assertActiveAccount(userId);
             socket.data.userId = userId;
             socket.data.isDriver = await hasRole(userId, "DRIVER");
+            // Solo un conductor aprobado y con documentos vigentes aparece en el mapa de los clientes.
+            // Si el admin lo aprueba o lo rechaza con el socket abierto, se actualiza con setDriverCanWork
+            if (socket.data.isDriver) {
+                const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: userId }, select: ELIGIBILITY_SELECT });
+                socket.data.canWork = driverBlockReason(car) === null;
+            }
             next();
         } catch {
             next(new Error("No autorizado"));
@@ -69,6 +78,7 @@ export const initializeSocket = (server: HttpServer) => {
         // Posición de un conductor disponible: la ven todos los clientes en el mapa. El id sale del token, no del mensaje
         on("change_driver_position", (data: any) => {
             if (!socket.data.isDriver) return denySocket(socket, "change_driver_position", "no es conductor");
+            if (!socket.data.canWork) return denySocket(socket, "change_driver_position", "conductor sin aprobar");
             const payload = parsePayload(data);
             io.emit("new_driver_position", {
                 "id_socket": socket.id,
@@ -173,6 +183,21 @@ export const getIo = (): Server => {
 // Si el socket no arrancó (por ejemplo, en un script) el aviso se omite: el cambio ya quedó en la BD
 export const notifyUser = (userId: number, event: string, payload: object) => {
     io?.to(userRoom(userId)).emit(event, payload);
+}
+
+// El admin aprobó o rechazó al conductor: sus conexiones abiertas toman el nuevo estado sin reconectarse
+export const setDriverCanWork = async (userId: number, canWork: boolean) => {
+    if (!io) return;
+    const sockets = await io.in(userRoom(userId)).fetchSockets();
+    for (const socket of sockets) socket.data.canWork = canWork;
+}
+
+// Suspensión desde el panel: se avisa a la app y se cierran todas las conexiones de esa cuenta
+export const disconnectUser = (userId: number, payload: object) => {
+    if (!io) return;
+    io.to(userRoom(userId)).emit("account_suspended", payload);
+    // Un momento para que el aviso alcance a salir antes de cerrar la conexión
+    setTimeout(() => io.in(userRoom(userId)).disconnectSockets(true), 500);
 }
 
 export const notifyDrivers = (event: string, payload: object) => {

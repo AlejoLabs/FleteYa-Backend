@@ -1,15 +1,16 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/App.Error.js";
 import { verifyToken } from "../config/jwt.js";
+import { assertActiveAccount, SESSION_EXPIRED } from "../utils/authorization.js";
 
-// La app lo distingue de otros 401 (como una contraseña equivocada) para cerrar la sesión y volver al inicio
-export const SESSION_EXPIRED = "SESSION_EXPIRED";
+export { SESSION_EXPIRED };
 
 export interface AuthRequest extends Request{
     user?: any
 }
 
-export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+// Token válido y cuenta activa: una cuenta suspendida por el admin deja de funcionar en su siguiente petición
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -18,12 +19,14 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
 
     const token = authHeader.split(" ")[1];
 
+    let decoded: any;
     try {
-        const decoded = verifyToken(token!);
-        req.user = decoded;
-        next();
+        decoded = verifyToken(token!);
     }
     catch(err){
         throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
     }
+    req.user = decoded;
+    await assertActiveAccount(Number(decoded?.id));
+    next();
 }

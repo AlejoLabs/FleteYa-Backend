@@ -1,6 +1,8 @@
 import prisma from "../database/prismaClient.js";
 import { isHeavyLicense, type CreateDriverCarInfoInput, type UpdateDocumentsInput, type UpdateVehicleInput } from "../validators/driver_car_info.validator.js";
 import { AppError } from "../utils/App.Error.js";
+import { driverBlockReason } from "./driver_eligibility.service.js";
+import { setDriverCanWork } from "../sockets/socketHandler.js";
 
 export const createDriverCarInfo = async (idDriver: number, data: CreateDriverCarInfoInput) => {
     const driverCarInfo = await prisma.driverCarInfo.upsert({
@@ -35,7 +37,8 @@ export const getByDriver = async (idDriver: number, viewerId: number) => {
         throw new AppError("La informacion del vehiculo no existe", 404);
     }
     if (viewerId === idDriver) {
-        return car;
+        // Qué le falta para recibir fletes (en revisión, rechazado o un documento vencido); null si puede trabajar
+        return { ...car, block_reason: driverBlockReason(car) };
     }
     const { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, capacity_kg, capacity_m3, approval_status } = car;
     return { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, capacity_kg, capacity_m3, approval_status };
@@ -49,15 +52,21 @@ const findMyCar = async (idDriver: number) => {
     return car;
 }
 
+// Otro vehículo (tipo o placa distintos) o datos corregidos después de un rechazo: el admin lo vuelve a revisar
+const needsReview = (car: { approval_status: string; vehicle_type: string; plate: string }, data: { vehicle_type: string; plate: string }) =>
+    car.approval_status === "REJECTED" || car.vehicle_type !== data.vehicle_type || car.plate !== data.plate;
+
 // El conductor cambia de vehículo o corrige sus datos. Un camión pide licencia B2 o C2 en adelante
 export const updateMyVehicle = async (idDriver: number, data: UpdateVehicleInput) => {
     const car = await findMyCar(idDriver);
     if (data.vehicle_type === "CAMION" && !isHeavyLicense(car.license_category)) {
         throw new AppError("Para camión necesitas licencia B2 o C2 en adelante: actualiza primero tus documentos", 409);
     }
-    return prisma.driverCarInfo.update({
+    const review = needsReview(car, data);
+    const updated = await prisma.driverCarInfo.update({
         where: { id_driver: idDriver },
         data: {
+            ...(review ? { approval_status: "PENDING" as const, approval_note: null, reviewed_at: null } : {}),
             vehicle_type: data.vehicle_type,
             brand: data.brand,
             color: data.color,
@@ -68,6 +77,10 @@ export const updateMyVehicle = async (idDriver: number, data: UpdateVehicleInput
             capacity_m3: data.capacity_m3 ?? null,
         }
     });
+    // Mientras lo revisan deja de estar disponible
+    if (review) await prisma.$executeRaw`DELETE FROM drivers_position WHERE id_driver = ${idDriver}`;
+    await setDriverCanWork(idDriver, driverBlockReason(updated) === null);
+    return { ...updated, block_reason: driverBlockReason(updated) };
 }
 
 // Renovó la licencia, el SOAT o la técnico-mecánica. El aviso de vencimiento vuelve a contar desde cero
@@ -84,8 +97,12 @@ export const updateMyDocuments = async (idDriver: number, data: UpdateDocumentsI
             soat_expires_at: data.soat_expires_at,
             techno_expires_at: data.techno_expires_at ?? null,
             documents_reminded_at: null,
+            // Si lo habían rechazado (por ejemplo, por un documento), al corregir vuelve a revisión
+            ...(car.approval_status === "REJECTED" ? { approval_status: "PENDING" as const, approval_note: null, reviewed_at: null } : {}),
         }
     });
+    // Con los documentos renovados vuelve a aparecer en el mapa (si estaba aprobado)
+    await setDriverCanWork(idDriver, driverBlockReason(updated) === null);
     return documentsStatus(updated);
 }
 

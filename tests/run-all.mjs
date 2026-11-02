@@ -2,7 +2,7 @@
 import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
 
-const SUITES = ["security.test.mjs", "negotiation.test.mjs", "accounts.test.mjs", "photos-delivery.test.mjs", "chat-ratings-incidents.test.mjs", "payments.test.mjs", "vehicle.test.mjs"];
+const SUITES = ["security.test.mjs", "negotiation.test.mjs", "accounts.test.mjs", "photos-delivery.test.mjs", "chat-ratings-incidents.test.mjs", "payments.test.mjs", "vehicle.test.mjs", "admin.test.mjs"];
 
 const failed = [];
 for (const suite of SUITES) {

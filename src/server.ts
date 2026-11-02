@@ -8,6 +8,7 @@ import driverPositionRouter from "./routes/driver_position.routes.js";
 import driverTripOfferRouter from "./routes/driver_trip_offer.routes.js";
 import driverCarInfoRouter from "./routes/driver_car_info.routes.js";
 import paymentSimulatorRouter, { paymentReturnRouter } from "./routes/payment_simulator.routes.js";
+import adminRouter from "./routes/admin.routes.js";
 import { errorHandler } from './middlewares/errorHandler.js';
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -39,6 +40,16 @@ app.get("/", (req, res)=>{
     });
 });
 app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
+
+// Panel de administración: su API y la página (archivos estáticos de admin/). La página solo carga recursos propios
+app.use("/admin/api", adminRouter);
+app.use("/admin", express.static(path.join(__dirname, "../admin"), {
+    setHeaders: (res) => {
+        res.setHeader("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Referrer-Policy", "no-referrer");
+    },
+}));
 app.use(errorHandler);
 
 const server = http.createServer(app);

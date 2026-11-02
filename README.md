@@ -12,6 +12,13 @@ La app móvil está en [FleteYa-Frontend](https://github.com/AlejoLabs/FleteYa-F
 - **Pagos:** en efectivo o por la app. Hay integración con Wompi y una pasarela de prueba propia mientras no haya llaves de Wompi. La comisión de FleteYa (10 %) se guarda en cada viaje.
 - **Después del viaje:** chat entre cliente y conductor, calificaciones y reporte de incidentes.
 - **Notificaciones push** con Firebase Cloud Messaging: ofertas, conductor asignado, solicitudes nuevas cerca, documentos por vencer, etc.
+- **Panel de administración web** en `/admin`:
+  - Estadísticas del negocio.
+  - Verificación de conductores: los nuevos esperan aprobación.
+  - Suspender, reactivar o anonimizar cuentas.
+  - Viajes, pagos y liquidación de comisiones en efectivo.
+  - Incidentes y tarifas.
+  - Registro de cada acción del admin.
 
 ## Tecnologías
 
@@ -47,6 +54,28 @@ npm run dev
 ```
 
 Antes de correr la migración, crea la base de datos vacía que pusiste en `DATABASE_URL`, por ejemplo `CREATE DATABASE fleteya;`.
+
+## Panel de administración
+
+Corre en el mismo servidor, en `http://HOST:PORT/admin`. Para entrar, crea una cuenta desde la app (o con `POST /auth/register`) y dale el rol de administrador:
+
+```bash
+npm run admin:grant -- tu-correo@ejemplo.com
+```
+
+Desde el panel:
+
+- **Conductores.** Un conductor nuevo queda "en revisión" hasta que lo apruebes. Solo los conductores aprobados y con documentos vigentes pueden ponerse disponibles, ver solicitudes y ofertar. Si lo rechazas, la app le muestra el motivo, y cuando corrige sus datos vuelve a la cola.
+- **Suspender una cuenta.** La sesión se corta al instante: su siguiente petición responde `403 ACCOUNT_SUSPENDED` y su conexión en tiempo real se cierra. La app vuelve al inicio de sesión mostrando el motivo.
+- **Anonimizar una cuenta** (Ley 1581 de 2012). Borra nombre, correo, celular, foto y documentos de la persona, y conserva sus viajes y pagos.
+- **Comisiones.** En los viajes pagados en efectivo, el conductor recibe todo el dinero y le debe la comisión a FleteYa. Desde "Pagos y comisiones" se marca como liquidada cuando la entrega.
+- **Tarifas y comisión.** Los cambios aplican a los fletes nuevos. Cada viaje ya acordado guardó su propia comisión.
+
+La sesión del panel es aparte de la de la app:
+
+- Vive en una cookie `httpOnly` y `SameSite=Strict` que dura 8 horas.
+- Todo cambio exige además el encabezado `X-FleteYa-Admin`.
+- Cada acción queda en el registro de acciones del panel.
 
 El servidor queda en `http://HOST:PORT`. Para probar desde un emulador o un celular, `HOST` debe ser la IP de tu PC en la red Wi-Fi, no `localhost`.
 
@@ -97,7 +126,7 @@ Para la tarjeta sirve cualquier fecha futura y cualquier CVC de 3 dígitos. Con 
 npm test
 ```
 
-Corren 7 suites contra el servidor encendido: seguridad, negociación, cuentas, fotos y entrega, chat con calificaciones e incidentes, pagos y vehículos.
+Corren 8 suites contra el servidor encendido: seguridad, negociación, cuentas, fotos y entrega, chat con calificaciones e incidentes, pagos, vehículos y panel de administración.
 
 Antes de correrlas, en tu base local deben existir el cliente y el conductor de `TEST_CLIENT_EMAIL` y `TEST_DRIVER_EMAIL`. El conductor debe tener un vehículo de estacas.
 
@@ -109,6 +138,7 @@ Antes de correrlas, en tu base local deben existir el cliente y el conductor de 
 | `npm run build` | Compila TypeScript |
 | `npm test` | Pruebas de la API |
 | `npm run db:seed` | Roles y tarifas base. Se puede correr varias veces |
+| `npm run admin:grant -- correo` | Da el rol de administrador a una cuenta que ya existe, para entrar al panel |
 | `npm run trips:cancel-stale -- 6` | Cancela los viajes abiertos que llevan más de 6 horas sin cambios |
 | `npm run users:hash-passwords` | Cifra contraseñas antiguas que hayan quedado en texto plano |
 
@@ -119,7 +149,7 @@ src/
 ├── server.ts        Punto de entrada: Express, rutas y Socket.IO
 ├── config/          JWT
 ├── controllers/     Leen la petición y llaman al servicio
-├── services/        Reglas del negocio y acceso a la base
+├── services/        Reglas del negocio y acceso a la base (admin/ para el panel)
 ├── routes/          Rutas de cada recurso, incluida la pasarela de prueba
 ├── middlewares/     Sesión, validación, subida de fotos y errores
 ├── validators/      Esquemas Zod de lo que entra
@@ -130,6 +160,7 @@ src/
 prisma/
 ├── schema.prisma    Modelo de datos
 └── migrations/      Historial de cambios de la base
+admin/               Panel web (HTML, CSS y JavaScript sin compilar; las vistas en views/)
 tests/               Pruebas de la API (npm test)
 ```
 
@@ -146,8 +177,9 @@ Todas las rutas, salvo las de `/auth`, piden el encabezado `Authorization: Beare
 | `/drivers-position` | Posición de los conductores disponibles |
 | `/users` | Perfil, foto y token de notificaciones |
 | `/payments` | Pasarela de prueba y regreso desde Wompi |
+| `/admin/api` | API del panel, con su propia sesión: estadísticas, usuarios, conductores, viajes, pagos, incidentes, tarifas y registro |
 
-Un token vencido o inválido responde `401` con `code: "SESSION_EXPIRED"`; así la app sabe que debe volver al inicio de sesión. Tras 5 intentos fallidos de inicio de sesión con el mismo correo, ese correo espera 15 minutos.
+Un token vencido o inválido responde `401` con `code: "SESSION_EXPIRED"`, y una cuenta suspendida, `403` con `code: "ACCOUNT_SUSPENDED"`. Así la app sabe que debe volver al inicio de sesión. Un conductor sin aprobar recibe `403` con `code: "DRIVER_NOT_APPROVED"` y el motivo. Tras 5 intentos fallidos de inicio de sesión con el mismo correo, ese correo espera 15 minutos.
 
 ## Licencia
 

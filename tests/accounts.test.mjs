@@ -29,7 +29,8 @@ check("Conductor registrado con rol DRIVER", reg.status === 200 && roles.length 
 check("El correo se guarda en minúsculas", reg.data?.user?.email === DRIVER_EMAIL);
 check("La respuesta no trae la contraseña ni el id de Google", reg.data?.user && !("password" in reg.data.user) && !("google_id" in reg.data.user));
 const car = await fetch(`${API}/driver-car-info/${reg.data?.user?.id}`, { headers: { Authorization: reg.data?.token } }).then((r) => r.json());
-check("Vehículo guardado: estacas, placa normalizada y aprobado", car.vehicle_type === "ESTACAS" && car.plate === plate && car.approval_status === "APPROVED", `${car.vehicle_type} ${car.plate} ${car.approval_status}`);
+// Desde la Fase 8 el conductor nuevo espera la verificación del admin (se prueba en admin.test.mjs)
+check("Vehículo guardado: estacas, placa normalizada y en revisión", car.vehicle_type === "ESTACAS" && car.plate === plate && car.approval_status === "PENDING", `${car.vehicle_type} ${car.plate} ${car.approval_status}`);
 
 // 3. Duplicados
 check("Misma placa con otro conductor: 409", (await call("POST", "/auth/register-driver", { ...account, email: `otro${stamp}@prueba.com`, vehicle })).status === 409);

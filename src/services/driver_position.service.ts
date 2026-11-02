@@ -1,8 +1,11 @@
 import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
 import type { CreateDriverPositionInput } from "../validators/driver_position_validator.js";
+import { assertDriverCanWork } from "./driver_eligibility.service.js";
 
+// Ponerse disponible: solo conductores aprobados con documentos vigentes
 export const createDriverPosition = async (idDriver: number, data: CreateDriverPositionInput) => {
+    await assertDriverCanWork(idDriver);
     const point = `POINT(${data.lng} ${data.lat})`;
 
     await prisma.$executeRawUnsafe(`

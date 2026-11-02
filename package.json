@@ -10,7 +10,8 @@
     "build": "tsc",
     "trips:cancel-stale": "tsx src/scripts/cancelStaleTrips.ts",
     "users:hash-passwords": "tsx src/scripts/hashPlainPasswords.ts",
-    "db:seed": "tsx src/scripts/seedBaseData.ts"
+    "db:seed": "tsx src/scripts/seedBaseData.ts",
+    "admin:grant": "tsx src/scripts/grantAdmin.ts"
   },
   "keywords": [],
   "author": "Alejandro Beltrán",

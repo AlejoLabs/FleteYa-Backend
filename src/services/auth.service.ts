@@ -7,7 +7,7 @@ import type { ChangePasswordInput, GoogleLinkInput, LoginInput, RegisterDriverIn
 import { generateToken } from "../config/jwt.js";
 import type { createUserInput } from "../validators/user.validator.js";
 import { sendMail } from "../utils/mailer.js";
-import type { RoleId } from "../utils/authorization.js";
+import { suspendedError, type RoleId } from "../utils/authorization.js";
 import { assertLoginAllowed, clearLoginFailures, registerLoginFailure } from "../utils/loginThrottle.js";
 
 const GOOGLE_ACCOUNT_MESSAGE = "Esta cuenta se creó con Google. Entra con Google o crea una contraseña con \"¿Olvidaste tu contraseña?\"";
@@ -18,6 +18,10 @@ const buildAuthResponse = async (userId: number) => {
         where: { id: userId },
         include: { roles: { include: { role: true } } }
     });
+    // Ningún camino de entrada (correo, Google, registro) abre sesión en una cuenta suspendida
+    if (user.status === "SUSPENDED") {
+        throw suspendedError(user.status_reason);
+    }
     const { password, google_id, roles, ...userData } = user;
     const token = generateToken({ id: user.id, email: user.email });
     return {
@@ -70,7 +74,7 @@ export const register = async (data: createUserInput) => {
 }
 
 // "Quiero transportar": la cuenta, el rol de conductor y el vehículo con sus documentos se crean juntos.
-// Para la demo queda aprobado de una vez (approval_status APPROVED por defecto)
+// Queda en revisión (approval_status PENDING) hasta que el admin verifique el vehículo y los documentos
 export const registerDriver = async (data: RegisterDriverInput) => {
     await assertEmailAvailable(data.email);
     const plateTaken = await prisma.driverCarInfo.findFirst({ where: { plate: data.vehicle.plate }, select: { id_driver: true } });

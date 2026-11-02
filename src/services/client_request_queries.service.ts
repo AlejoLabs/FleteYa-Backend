@@ -5,6 +5,7 @@ import { canCarry, vehicleRank } from "../utils/vehicles.js";
 import { ACTIVE_STATUSES } from "./client_request.shared.js";
 import { MAX_DELIVERY_ATTEMPTS } from "./client_request_trip.service.js";
 import { clientRatings, driverRatings, ratingOf } from "./ratings.service.js";
+import { assertDriverCanWork } from "./driver_eligibility.service.js";
 
 // Consultas de solicitudes: las cercanas para el conductor, el detalle de una y los historiales
 
@@ -51,6 +52,7 @@ const normalizeBigInt = (obj: any): any => JSON.parse(
 // Un conductor ve las solicitudes vigentes que caben en su vehículo, que no descartó y que no son suyas.
 // El celular del cliente no se muestra: cliente y conductor se hablan por el chat del viaje
 export const getNearbyClientRequests = async (idDriver: number, driverLat: number, driverLng: number) => {
+    await assertDriverCanWork(idDriver);
     const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { vehicle_type: true, capacity_kg: true, capacity_m3: true } });
     const vehicle = car ?? { vehicle_type: "CARRY" as const, capacity_kg: null, capacity_m3: null };
     // Con capacidad propia declarada, la base trae también las de vehículos más grandes y se filtran abajo por tamaño

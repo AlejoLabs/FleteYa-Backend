@@ -1,6 +1,7 @@
 import prisma from "../database/prismaClient.js";
 import { canCarry } from "../utils/vehicles.js";
 import { formatPesos, sendPush } from "../utils/push.js";
+import { driverBlockReason, ELIGIBILITY_SELECT } from "./driver_eligibility.service.js";
 
 // Aviso push de una solicitud nueva a los conductores disponibles cerca de la recogida en cuyo vehículo cabe la carga.
 // Disponible = tiene posición guardada (al ponerse "No disponible" la app la borra). Con la app abierta, el inicio
@@ -39,8 +40,8 @@ export const alertNearbyDrivers = async (idClientRequest: number) => {
         if (!drivers.length) return;
 
         const cars = await prisma.driverCarInfo.findMany({
-            where: { id_driver: { in: drivers.map((driver) => driver.id_driver) }, approval_status: "APPROVED" },
-            select: { id_driver: true, vehicle_type: true, capacity_kg: true, capacity_m3: true },
+            where: { id_driver: { in: drivers.map((driver) => driver.id_driver) }, approval_status: "APPROVED", driver: { status: "ACTIVE" } },
+            select: { id_driver: true, vehicle_type: true, capacity_kg: true, capacity_m3: true, ...ELIGIBILITY_SELECT },
         });
         const cargo = {
             weight_kg: trip.weight_kg ?? undefined, length_cm: trip.length_cm ?? undefined, width_cm: trip.width_cm ?? undefined,
@@ -50,7 +51,8 @@ export const alertNearbyDrivers = async (idClientRequest: number) => {
         const when = trip.scheduled_at ? " · programado" : "";
 
         for (const car of cars) {
-            if (!canCarry(car, cargo)) continue;
+            // Aprobado pero con un documento vencido: no recibe avisos hasta renovarlo
+            if (driverBlockReason(car) || !canCarry(car, cargo)) continue;
             const distance = drivers.find((driver) => driver.id_driver === car.id_driver)!.distance;
             const km = (Number(distance) / 1000).toFixed(1).replace(".", ",");
             void sendPush(car.id_driver, {

@@ -6,9 +6,11 @@ import { deny } from "../utils/authorization.js";
 import { canCarry } from "../utils/vehicles.js";
 import { notifyUser } from "../sockets/socketHandler.js";
 import { formatPesos, sendPush } from "../utils/push.js";
+import { assertDriverCanWork } from "./driver_eligibility.service.js";
 
 // Ofertar o contraofertar: si el conductor ya tenía una oferta pendiente, la nueva la reemplaza
 export const createDriverTripOffer = async (idDriver: number, data: CreateDriverTripOfferInput) => {
+    await assertDriverCanWork(idDriver);
     const clientRequest = await prisma.clientRequests.findUnique({
         where: { id: data.id_client_request },
         select: { id_client: true, status: true, expires_at: true, required_vehicle: true, weight_kg: true, length_cm: true, width_cm: true, height_cm: true, packages: true }
