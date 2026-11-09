@@ -51,8 +51,8 @@ export const createClientRequest = async (data: CreateClientRequestInput & { id_
                 ${data.width_cm ?? null},
                 ${data.length_cm ?? null},
                 'CREATED',
-                NOW(),
-                NOW()
+                UTC_TIMESTAMP(3),
+                UTC_TIMESTAMP(3)
             )
         `;
 

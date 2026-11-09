@@ -108,7 +108,7 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
 
                 ) AS destination_position,
                 ST_Distance_Sphere(pickup_position, ST_GeomFromText(CONCAT('POINT(', ${driverLng}, ' ', ${driverLat}, ')'), 4326)) as distance,
-                timestampdiff(MINUTE, CR.update_at, NOW()) AS time_difference,
+                timestampdiff(MINUTE, CR.update_at, UTC_TIMESTAMP()) AS time_difference,
                 JSON_OBJECT(
                     "name", U.name,
                     "lastname", U.lastname,
