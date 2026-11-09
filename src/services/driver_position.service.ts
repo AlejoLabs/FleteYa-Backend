@@ -30,7 +30,7 @@ export const getDriverPosition = async (id_driver: number) => {
             id_driver = ${id_driver}
     `;
     if (!result || result.length === 0) {
-        throw new AppError("El conductor no existe", 404);
+        throw new AppError("DRIVER_NOT_FOUND", 404);
     }
 
     const row = result[0];
@@ -38,7 +38,7 @@ export const getDriverPosition = async (id_driver: number) => {
     const match = row?.position.match(/POINT\(([-\d.]+)\s+([-\d.]+)\)/);
 
     if (!match) {
-        throw new AppError("Error al obtener la posición del conductor", 500);
+        throw new AppError("DRIVER_POSITION_FAILED", 500);
     }
 
     const lng = parseFloat(match[1]!);
@@ -91,7 +91,7 @@ export const deleteDriverPosition = async (id_driver: number) => {
     });
 
     if (!driverPosition) {
-        throw new AppError("La posición del conductor no existe", 404);
+        throw new AppError("DRIVER_POSITION_NOT_FOUND", 404);
     }
     
     await prisma.driverPosition.delete({

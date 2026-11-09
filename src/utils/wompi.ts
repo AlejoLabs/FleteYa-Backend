@@ -25,7 +25,7 @@ const keys = () => {
     const privateKey = process.env.WOMPI_PRIVATE_KEY;
     const integritySecret = process.env.WOMPI_INTEGRITY_SECRET;
     if (!publicKey || !privateKey || !integritySecret) {
-        throw new AppError("Los pagos por la app no están disponibles en este momento. Paga en efectivo al conductor", 503);
+        throw new AppError("ONLINE_PAYMENTS_UNAVAILABLE", 503);
     }
     return { publicKey, privateKey, integritySecret };
 }
@@ -71,6 +71,6 @@ export const findTransaction = async (reference: string): Promise<WompiTransacti
     } catch (err) {
         const status = axios.isAxiosError(err) ? err.response?.status : undefined;
         console.error(`[wompi] no se pudo consultar la referencia ${reference} (HTTP ${status ?? "sin respuesta"})`);
-        throw new AppError("No pudimos consultar el pago con Wompi. Intenta de nuevo en un momento", 502);
+        throw new AppError("WOMPI_LOOKUP_FAILED", 502);
     }
 }

@@ -17,7 +17,7 @@ export const registerDriver = handle((body) => authService.registerDriver(body))
 export const login = handle((body) => authService.loginUser(body));
 export const forgotPassword = handle((body) => authService.forgotPassword(body.email));
 export const resetPassword = handle((body) => authService.resetPassword(body));
-export const loginWithGoogle = handle((body) => authService.loginWithGoogle(body.id_token));
+export const loginWithGoogle = handle((body) => authService.loginWithGoogle(body.id_token, body.language));
 export const linkGoogle = handle((body) => authService.linkGoogle(body));
 
 export const changePassword = async (req: Request, res: Response, next: NextFunction) => {

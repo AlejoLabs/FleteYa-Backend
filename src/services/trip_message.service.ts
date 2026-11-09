@@ -39,14 +39,14 @@ export const sendMessage = async (userId: number, idTrip: number, text: string) 
     const trip = await assertTripParticipant(idTrip, userId);
     const receiver = otherParticipant(trip, userId);
     if (!receiver || !ACTIVE_STATUSES.includes(trip.status)) {
-        throw new AppError("El chat está abierto solo mientras el viaje está en curso", 409);
+        throw new AppError("CHAT_CLOSED", 409);
     }
 
     const recent = await prisma.tripMessage.count({
         where: { id_client_request: idTrip, id_sender: userId, created_at: { gte: new Date(Date.now() - 60_000) } }
     });
     if (recent >= MAX_MESSAGES_PER_MINUTE) {
-        throw new AppError("Estás enviando muchos mensajes seguidos. Espera un momento", 429);
+        throw new AppError("TOO_MANY_MESSAGES", 429);
     }
 
     const message = await prisma.tripMessage.create({
@@ -57,7 +57,7 @@ export const sendMessage = async (userId: number, idTrip: number, text: string) 
 
     notifyUser(receiver, `trip_message/${idTrip}`, payload);
     const preview = text.length > PUSH_PREVIEW_LENGTH ? `${text.slice(0, PUSH_PREVIEW_LENGTH)}…` : text;
-    void sendPush(receiver, { type: "CHAT_MESSAGE", id_client_request: idTrip, title: `Mensaje de ${message.sender.name}`, body: preview });
+    void sendPush(receiver, { type: "CHAT_MESSAGE", id_client_request: idTrip, key: "CHAT_MESSAGE", params: { name: message.sender.name, text: preview } });
 
     return payload;
 }

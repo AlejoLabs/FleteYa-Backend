@@ -3,6 +3,7 @@ import path from "path";
 import { cert, initializeApp, type App } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import prisma from "../database/prismaClient.js";
+import { normalizeLanguage, t, type Language, type Params } from "../i18n/index.js";
 
 // Notificaciones push con Firebase Cloud Messaging. Complementan a los sockets: llegan aunque la app esté cerrada.
 // La llave privada va en un archivo fuera de git (FIREBASE_SERVICE_ACCOUNT_PATH); sin ella, en desarrollo solo se registran en consola
@@ -12,12 +13,17 @@ export type PushType =
     | "TRIP_CANCELED" | "SCHEDULED_REMINDER" | "DOCUMENTS_EXPIRING" | "CHAT_MESSAGE" | "TRIP_PAID" | "NEW_REQUEST"
     | "DRIVER_REVIEWED";
 
+// El texto no viaja escrito: va la clave (push.<key>.title y push.<key>.body) y sus datos, y se escribe
+// en el idioma de quien lo recibe (users.language) justo antes de enviarlo
 interface PushMessage {
-    title: string;
-    body: string;
+    key: string;
+    params?: Params;
     type: PushType;
     id_client_request?: number;
 }
+
+// Para los avisos cuyos datos también dependen del idioma (por ejemplo una lista de documentos)
+export type PushContent = PushMessage | ((language: Language) => PushMessage);
 
 let app: App | undefined;
 
@@ -38,13 +44,23 @@ const getApp = (): App | null => {
     return app;
 }
 
+// Título y texto de un aviso en el idioma dado (lo usa sendPush con el idioma guardado de cada usuario)
+export const pushText = (language: string | null | undefined, message: { key: string; params?: Params }) => ({
+    title: t(language, `push.${message.key}.title`, message.params),
+    body: t(language, `push.${message.key}.body`, message.params),
+});
+
 // Nunca lanza: una notificación que falla no puede tumbar la acción que la originó (asignar, entregar...)
-export const sendPush = async (userId: number, message: PushMessage) => {
+export const sendPush = async (userId: number, content: PushContent) => {
+    let message: PushMessage = typeof content === "function" ? content("es") : content;
     try {
-        const user = await prisma.user.findUnique({ where: { id: userId }, select: { notification_token: true } });
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { notification_token: true, language: true } });
+        const language = normalizeLanguage(user?.language);
+        if (typeof content === "function") message = content(language);
+        const { title, body } = pushText(language, message);
         const firebase = getApp();
         if (!firebase) {
-            console.log(`[push] (sin Firebase) usuario=${userId} ${message.type}: ${message.title}`);
+            console.log(`[push] (sin Firebase) usuario=${userId} ${message.type}: ${title}`);
             return;
         }
         if (!user?.notification_token) return;
@@ -55,7 +71,7 @@ export const sendPush = async (userId: number, message: PushMessage) => {
 
         await getMessaging(firebase).send({
             token: user.notification_token,
-            notification: { title: message.title, body: message.body },
+            notification: { title, body },
             data,
             // Ícono propio (silueta del camión, ya incluida en la app) y color de la marca en la barra de notificaciones
             android: { priority: "high", notification: { channelId: "trips", icon: "notification_icon", color: "#1B2430" } },

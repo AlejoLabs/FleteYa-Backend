@@ -1,6 +1,15 @@
 import type {Request, Response, NextFunction} from "express";
 import multer from "multer";
 import { AppError } from "../utils/App.Error.js";
+import { t } from "../i18n/index.js";
+
+// Respuesta de error: message en español (panel, pruebas, registros), key + params para que la app lo traduzca
+const errorBody = (statusCode: number, key: string, params?: Record<string, string | number>) => ({
+    message: t("es", `errors.${key}`, params),
+    statusCode,
+    key,
+    ...(params ? { params } : {}),
+});
 
 export const errorHandler = (
     err: any,
@@ -13,16 +22,18 @@ export const errorHandler = (
             message: err.message,
             statusCode: err.statusCode,
             ...(err.code ? { code: err.code } : {}),
+            ...(err.key ? { key: err.key } : {}),
+            ...(err.key && err.params ? { params: err.params } : {}),
         });
     }
 
     if (err instanceof multer.MulterError) {
-        const message = err.code === "LIMIT_FILE_SIZE"
-            ? "La foto no puede pesar más de 5 MB"
+        const key = err.code === "LIMIT_FILE_SIZE"
+            ? "FILE_TOO_LARGE"
             : err.code === "LIMIT_FILE_COUNT"
-                ? "Adjuntaste más fotos de las permitidas"
-                : "No se pudo subir el archivo";
-        return res.status(400).json({ message, statusCode: 400 });
+                ? "TOO_MANY_FILES"
+                : "UPLOAD_FAILED";
+        return res.status(400).json(errorBody(400, key));
     }
 
     console.error(err);
@@ -30,5 +41,6 @@ export const errorHandler = (
     return res.status(err.statusCode || 500).json({
         message: "Internal server error",
         statusCode: 500,
+        key: "INTERNAL_ERROR",
     })
 }

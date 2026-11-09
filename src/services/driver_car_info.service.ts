@@ -1,7 +1,7 @@
 import prisma from "../database/prismaClient.js";
 import { isHeavyLicense, type CreateDriverCarInfoInput, type UpdateDocumentsInput, type UpdateVehicleInput } from "../validators/driver_car_info.validator.js";
 import { AppError } from "../utils/App.Error.js";
-import { driverBlockReason } from "./driver_eligibility.service.js";
+import { blockReasonOf, driverBlockReason } from "./driver_eligibility.service.js";
 import { setDriverCanWork } from "../sockets/socketHandler.js";
 
 export const createDriverCarInfo = async (idDriver: number, data: CreateDriverCarInfoInput) => {
@@ -34,11 +34,11 @@ export const getByDriver = async (idDriver: number, viewerId: number) => {
     });
 
     if (!car) {
-        throw new AppError("La informacion del vehiculo no existe", 404);
+        throw new AppError("VEHICLE_INFO_NOT_FOUND", 404);
     }
     if (viewerId === idDriver) {
         // Qué le falta para recibir fletes (en revisión, rechazado o un documento vencido); null si puede trabajar
-        return { ...car, block_reason: driverBlockReason(car) };
+        return { ...car, block_reason: driverBlockReason(car), block_reason_detail: blockReasonOf(car) };
     }
     const { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, capacity_kg, capacity_m3, approval_status } = car;
     return { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, capacity_kg, capacity_m3, approval_status };
@@ -47,7 +47,7 @@ export const getByDriver = async (idDriver: number, viewerId: number) => {
 const findMyCar = async (idDriver: number) => {
     const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver } });
     if (!car) {
-        throw new AppError("Primero registra tu vehículo", 404);
+        throw new AppError("REGISTER_VEHICLE_FIRST", 404);
     }
     return car;
 }
@@ -60,7 +60,7 @@ const needsReview = (car: { approval_status: string; vehicle_type: string; plate
 export const updateMyVehicle = async (idDriver: number, data: UpdateVehicleInput) => {
     const car = await findMyCar(idDriver);
     if (data.vehicle_type === "CAMION" && !isHeavyLicense(car.license_category)) {
-        throw new AppError("Para camión necesitas licencia B2 o C2 en adelante: actualiza primero tus documentos", 409);
+        throw new AppError("TRUCK_NEEDS_LICENSE_UPDATE", 409);
     }
     const review = needsReview(car, data);
     const updated = await prisma.driverCarInfo.update({
@@ -80,14 +80,14 @@ export const updateMyVehicle = async (idDriver: number, data: UpdateVehicleInput
     // Mientras lo revisan deja de estar disponible
     if (review) await prisma.$executeRaw`DELETE FROM drivers_position WHERE id_driver = ${idDriver}`;
     await setDriverCanWork(idDriver, driverBlockReason(updated) === null);
-    return { ...updated, block_reason: driverBlockReason(updated) };
+    return { ...updated, block_reason: driverBlockReason(updated), block_reason_detail: blockReasonOf(updated) };
 }
 
 // Renovó la licencia, el SOAT o la técnico-mecánica. El aviso de vencimiento vuelve a contar desde cero
 export const updateMyDocuments = async (idDriver: number, data: UpdateDocumentsInput) => {
     const car = await findMyCar(idDriver);
     if (car.vehicle_type === "CAMION" && !isHeavyLicense(data.license_category)) {
-        throw new AppError("Para camión necesitas licencia B2 o C2 en adelante", 400);
+        throw new AppError("TRUCK_NEEDS_LICENSE", 400);
     }
     const updated = await prisma.driverCarInfo.update({
         where: { id_driver: idDriver },
@@ -134,7 +134,7 @@ export const getMyDocuments = async (idDriver: number) => {
         select: { license_expires_at: true, soat_expires_at: true, techno_expires_at: true }
     });
     if (!car) {
-        throw new AppError("Primero registra tu vehículo", 404);
+        throw new AppError("REGISTER_VEHICLE_FIRST", 404);
     }
     return documentsStatus(car);
 }

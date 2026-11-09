@@ -160,13 +160,13 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
             }
         });
     } catch (err) {
-        throw new AppError("Error al conectar con la API de Google Distance", 500);
+        throw new AppError("DISTANCE_API_UNREACHABLE", 500);
     }
 
     const body = response.data;
 
     if (body.status !== "OK") {
-        throw new AppError(`Respuesta no válida del API de Google Distance: ${body.status}`, 500);
+        throw new AppError("DISTANCE_API_INVALID", 500, undefined, { status: body.status });
     }
 
     const elements = body.rows?.[0]?.elements;

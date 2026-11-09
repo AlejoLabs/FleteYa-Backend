@@ -174,7 +174,7 @@ export const initializeSocket = (server: HttpServer) => {
 
 export const getIo = (): Server => {
     if (!io) {
-        throw new AppError("Socket.io no ha sido inicializado", 500);
+        throw new AppError("SOCKET_NOT_INITIALIZED", 500);
     }
     return io;
 }

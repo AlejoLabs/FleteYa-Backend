@@ -17,7 +17,7 @@ const findPaymentTrip = async (id: number) => {
         select: { id: true, id_client: true, id_driver_assigned: true, status: true, fare_assigned: true, commission: true, payment_method: true, paid_at: true }
     });
     if (!trip) {
-        throw new AppError("La solicitud de viaje no existe", 404);
+        throw new AppError("REQUEST_NOT_FOUND", 404);
     }
     return trip;
 }
@@ -26,10 +26,10 @@ type PaymentTrip = Awaited<ReturnType<typeof findPaymentTrip>>;
 
 const assertPayable = (trip: PaymentTrip) => {
     if (trip.status !== "FINISHED") {
-        throw new AppError("El flete se paga cuando el conductor entrega la carga", 409);
+        throw new AppError("PAY_AFTER_DELIVERY", 409);
     }
     if (trip.paid_at) {
-        throw new AppError("Este flete ya está pagado", 409);
+        throw new AppError("TRIP_ALREADY_PAID", 409);
     }
 }
 
@@ -77,8 +77,7 @@ const markPaid = async (trip: PaymentTrip, method: PaymentMethod, label: string)
         notifyUser(trip.id_driver_assigned, `trip_paid/${trip.id}`, payload);
         if (method === "WOMPI") {
             void sendPush(trip.id_driver_assigned, {
-                type: "TRIP_PAID", id_client_request: trip.id,
-                title: "Pago recibido", body: `El cliente pagó ${formatPesos(trip.fare_assigned ?? 0)} ${label}.`
+                type: "TRIP_PAID", id_client_request: trip.id, key: "TRIP_PAID", params: { amount: formatPesos(trip.fare_assigned ?? 0) },
             });
         }
     }
@@ -91,13 +90,13 @@ export const changePaymentMethod = async (userId: number, id: number, method: Pa
         throw deny(userId, "cambiar-metodo-pago", `client_requests/${id}`);
     }
     if (trip.paid_at) {
-        throw new AppError("Este flete ya está pagado", 409);
+        throw new AppError("TRIP_ALREADY_PAID", 409);
     }
     if (["CANCELED", "EXPIRED"].includes(trip.status)) {
-        throw new AppError("Este flete ya no está activo", 409);
+        throw new AppError("TRIP_NOT_ACTIVE", 409);
     }
     if (method === "WOMPI" && !isGatewayAvailable()) {
-        throw new AppError("Los pagos por la app no están disponibles en este momento. Paga en efectivo al conductor", 503);
+        throw new AppError("ONLINE_PAYMENTS_UNAVAILABLE", 503);
     }
     await prisma.clientRequests.update({ where: { id }, data: { payment_method: method } });
     if (trip.id_driver_assigned) {
@@ -114,7 +113,7 @@ export const startWompiPayment = async (userId: number, id: number) => {
     }
     assertPayable(trip);
     if (!isGatewayAvailable()) {
-        throw new AppError("Los pagos por la app no están disponibles en este momento. Paga en efectivo al conductor", 503);
+        throw new AppError("ONLINE_PAYMENTS_UNAVAILABLE", 503);
     }
 
     const amount = Math.round(trip.fare_assigned ?? 0);
@@ -172,7 +171,7 @@ export const confirmCashPayment = async (userId: number, id: number) => {
     }
     assertPayable(trip);
     if (trip.payment_method !== "CASH") {
-        throw new AppError("El cliente eligió pagar por la app. Si te paga en efectivo, pídele que lo cambie en su app", 409);
+        throw new AppError("CLIENT_CHOSE_ONLINE_PAYMENT", 409);
     }
 
     const amount = Math.round(trip.fare_assigned ?? 0);

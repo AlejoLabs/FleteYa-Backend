@@ -16,13 +16,13 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
         select: { id_client: true, status: true, expires_at: true, required_vehicle: true, weight_kg: true, length_cm: true, width_cm: true, height_cm: true, packages: true }
     });
     if (!clientRequest) {
-        throw new AppError("La solicitud de viaje no existe", 404);
+        throw new AppError("REQUEST_NOT_FOUND", 404);
     }
     if (clientRequest.status !== "CREATED" || !clientRequest.expires_at || clientRequest.expires_at <= new Date()) {
-        throw new AppError("Este viaje ya no recibe ofertas", 409);
+        throw new AppError("TRIP_NOT_ACCEPTING_OFFERS", 409);
     }
     if (clientRequest.id_client === idDriver) {
-        throw new AppError("No puedes ofertar en tu propio viaje", 400);
+        throw new AppError("CANNOT_OFFER_OWN_TRIP", 400);
     }
 
     const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { vehicle_type: true, capacity_kg: true, capacity_m3: true } });
@@ -31,14 +31,14 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
         height_cm: clientRequest.height_cm ?? undefined, packages: clientRequest.packages, required_vehicle: clientRequest.required_vehicle,
     };
     if (!canCarry(car ?? { vehicle_type: "CARRY", capacity_kg: null, capacity_m3: null }, cargo)) {
-        throw new AppError("Esta carga no cabe en tu vehículo", 409);
+        throw new AppError("CARGO_DOES_NOT_FIT", 409);
     }
 
     const dismissed = await prisma.driverDismissedRequest.findUnique({
         where: { id_driver_id_client_request: { id_driver: idDriver, id_client_request: data.id_client_request } }
     });
     if (dismissed) {
-        throw new AppError("Marcaste esta solicitud como \"No me interesa\"", 409);
+        throw new AppError("REQUEST_DISMISSED", 409);
     }
 
     const offer = await prisma.$transaction(async (tx) => {
@@ -59,8 +59,8 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
 
     // Con la app abierta la oferta llega por socket; la push es para cuando el cliente salió de la app mientras espera
     void sendPush(clientRequest.id_client, {
-        type: "NEW_OFFER", id_client_request: data.id_client_request,
-        title: `Nueva oferta: ${formatPesos(data.fare_offered)}`, body: `Llega en unos ${Math.round(data.time)} minutos. Toca para verla.`
+        type: "NEW_OFFER", id_client_request: data.id_client_request, key: "NEW_OFFER",
+        params: { amount: formatPesos(data.fare_offered), count: Math.round(data.time) },
     });
     return offer;
 }
@@ -71,7 +71,7 @@ const findOfferOrFail = async (id: number) => {
         select: { id: true, id_driver: true, id_client_request: true, status: true, client_request: { select: { id_client: true } } }
     });
     if (!offer) {
-        throw new AppError("La oferta no existe", 404);
+        throw new AppError("OFFER_NOT_FOUND", 404);
     }
     return offer;
 }
@@ -87,7 +87,7 @@ export const rejectOffer = async (userId: number, id: number) => {
         data: { status: "REJECTED" }
     });
     if (result.count === 0) {
-        throw new AppError("Esta oferta ya no está vigente", 409);
+        throw new AppError("OFFER_NOT_VALID", 409);
     }
     notifyUser(offer.id_driver, `offer_status/${offer.id_driver}`, {
         id_client_request: offer.id_client_request, status: "REJECTED", reason: "CLIENT_REJECTED"
@@ -106,7 +106,7 @@ export const withdrawOffer = async (userId: number, id: number) => {
         data: { status: "WITHDRAWN" }
     });
     if (result.count === 0) {
-        throw new AppError("Esta oferta ya no está vigente", 409);
+        throw new AppError("OFFER_NOT_VALID", 409);
     }
     notifyUser(offer.client_request.id_client, `created_driver_offer/${offer.id_client_request}`, {
         id_client_request: offer.id_client_request

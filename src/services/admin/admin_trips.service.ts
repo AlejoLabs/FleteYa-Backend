@@ -107,7 +107,7 @@ export const cancelTrip = async (adminId: number, id: number, reason: string) =>
     for (const userId of [trip.id_client, trip.id_driver_assigned]) {
         if (!userId) continue;
         notifyUser(userId, `trip_canceled/${id}`, payload);
-        void sendPush(userId, { type: "TRIP_CANCELED", id_client_request: id, title: "FleteYa cerró el flete", body: `Motivo: ${reason}` });
+        void sendPush(userId, { type: "TRIP_CANCELED", id_client_request: id, key: "TRIP_CANCELED_BY_ADMIN", params: { reason } });
     }
     return { id, status: "CANCELED" };
 }

@@ -3,8 +3,8 @@ import { createUserSchema } from "./user.validator.js";
 import { driverVehicleSchema } from "./driver_car_info.validator.js";
 
 // El correo se guarda y se busca sin espacios y en minúsculas
-export const emailSchema = z.string().trim().toLowerCase().refine((val) => /\S+@\S+\.\S+/.test(val), {message: "Formato del correo no valido"});
-const passwordSchema = z.string().min(6, {message: "Minimo 6 caracteres"});
+export const emailSchema = z.string().trim().toLowerCase().refine((val) => /\S+@\S+\.\S+/.test(val), {message: "EMAIL_FORMAT_INVALID"});
+const passwordSchema = z.string().min(6, {message: "MIN_6_CHARS"});
 
 export const loginSchema = z.object({
     email: emailSchema,
@@ -22,12 +22,14 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
     email: emailSchema,
-    code: z.string().trim().regex(/^\d{6}$/, {message: "El código tiene 6 dígitos"}),
+    code: z.string().trim().regex(/^\d{6}$/, {message: "CODE_6_DIGITS"}),
     password: passwordSchema,
 });
 
 export const googleLoginSchema = z.object({
-    id_token: z.string().min(20, {message: "Falta el token de Google"}),
+    id_token: z.string().min(20, {message: "GOOGLE_TOKEN_MISSING"}),
+    // Idioma del teléfono, por si la cuenta se crea en este momento
+    language: z.string().max(10).optional(),
 });
 
 // Vincular Google a una cuenta que ya existía con ese correo: se pide su contraseña una vez

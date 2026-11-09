@@ -17,7 +17,7 @@ export const makePhotoUpload = (maxFiles: number) => multer({
     limits: { fileSize: MAX_PHOTO_BYTES, files: maxFiles },
     fileFilter: (req, file, cb) => {
         if (!["image/jpeg", "image/jpg", "image/png"].includes(file.mimetype)) {
-            return cb(new AppError("Solo se permiten fotos JPG o PNG", 400));
+            return cb(new AppError("ONLY_JPG_PNG_PHOTOS", 400));
         }
         cb(null, true);
     }
@@ -35,11 +35,11 @@ const detectExtension = (buffer: Buffer): "jpg" | "png" | null => {
 // Guarda la foto con un nombre aleatorio (nunca el que manda el teléfono) y devuelve ese nombre
 export const savePhoto = async (folder: string, file?: Express.Multer.File): Promise<string> => {
     if (!file) {
-        throw new AppError("Adjunta una foto en el campo \"file\"", 400);
+        throw new AppError("ATTACH_PHOTO", 400);
     }
     const extension = detectExtension(file.buffer);
     if (!extension) {
-        throw new AppError("El archivo no es una foto JPG o PNG válida", 400);
+        throw new AppError("INVALID_PHOTO_FILE", 400);
     }
     const fileName = `${crypto.randomUUID()}.${extension}`;
     await fs.mkdir(path.join(STORAGE_ROOT, folder), { recursive: true });

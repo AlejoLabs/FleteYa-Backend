@@ -93,7 +93,7 @@ export const createClientRequest = async (data: CreateClientRequestInput & { id_
         void alertNearbyDrivers(result);
         return result;
     } catch (e) {
-        throw new AppError(`Error al crear la solicitud de viaje: ${e}`, 500);
+        throw new AppError("REQUEST_CREATE_FAILED", 500, undefined, { detail: String(e) });
     }
 
 }
@@ -105,7 +105,7 @@ export const raiseFare = async (userId: number, id: number, data: RaiseFareInput
         throw deny(userId, "subir-precio", `client_requests/${id}`);
     }
     if (data.fare_offered <= trip.fare_offered) {
-        throw new AppError("El nuevo precio debe ser mayor al actual", 400);
+        throw new AppError("FARE_MUST_INCREASE", 400);
     }
 
     const expiresAt = trip.scheduled_at ? trip.expires_at : new Date(Date.now() + SEARCH_DURATION_MS);
@@ -114,7 +114,7 @@ export const raiseFare = async (userId: number, id: number, data: RaiseFareInput
         data: { fare_offered: data.fare_offered, expires_at: expiresAt }
     });
     if (result.count === 0) {
-        throw new AppError("Esta búsqueda ya terminó", 409);
+        throw new AppError("SEARCH_ALREADY_ENDED", 409);
     }
 
     notifyDrivers("client_request_updated", { id_client_request: id, fare_offered: data.fare_offered });
@@ -166,19 +166,19 @@ export const getTimeAndDistance = async (
             }
         });
     } catch (err) {
-        throw new AppError("Error al conectar con la API de Google Distance", 500);
+        throw new AppError("DISTANCE_API_UNREACHABLE", 500);
     }
 
     const body = response.data;
 
     if (body.status !== "OK") {
-        throw new AppError(`Respuesta no válida del API de Google Distance: ${body.status}`, 500);
+        throw new AppError("DISTANCE_API_INVALID", 500, undefined, { status: body.status });
     }
 
     const element = body.rows?.[0]?.elements?.[0];
 
     if (!element || element.status !== "OK") {
-        throw new AppError(`No se puede calcular la distancia y el tiempo`, 500);
+        throw new AppError("DISTANCE_NOT_COMPUTABLE", 500);
     }
 
     const distanceValue = element.distance.value; // en metros
@@ -193,7 +193,7 @@ export const getTimeAndDistance = async (
     ]);
 
     if (!values || !rate) {
-        throw new AppError("Valores de la tarifa no configurados", 500);
+        throw new AppError("RATES_NOT_CONFIGURED", 500);
     }
 
     // Un vehículo más grande tiene una base mayor y cobra más por kilómetro y por minuto.

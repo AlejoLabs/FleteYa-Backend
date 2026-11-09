@@ -30,7 +30,7 @@ export const upload = multer({
     fileFilter: (req, file, cb) => {
         const allowed = ["image/jpeg", "image/png", "image/jpg"];
         if (!allowed.includes(file.mimetype)) {
-           return cb(new AppError("Solo se permiten archivos JPEG, PNG o JPG", 400));
+           return cb(new AppError("ONLY_JPEG_PNG_FILES", 400));
         }
         cb(null, true);
     }

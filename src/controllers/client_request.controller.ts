@@ -149,17 +149,17 @@ export const getTimeAndDistance = async (req: Request, res: Response, next: Next
         const size = Number(req.query.size);
 
         if (!Number.isFinite(weight) || weight <= 0) {
-            throw new AppError("El peso (weight) es obligatorio y debe ser mayor a 0", 400);
+            throw new AppError("WEIGHT_REQUIRED", 400);
         }
 
         if (!Number.isFinite(size) || size <= 0) {
-            throw new AppError("El tamaño (size) es obligatorio y debe ser mayor a 0", 400);
+            throw new AppError("SIZE_REQUIRED", 400);
         }
 
         // Sin vehículo (versiones viejas de la app) se cotiza con el más pequeño
         const vehicle = (req.query.vehicle ?? "CARRY") as VehicleType;
         if (!VEHICLE_ORDER.includes(vehicle)) {
-            throw new AppError("El tipo de vehículo no es válido", 400);
+            throw new AppError("VEHICLE_TYPE_INVALID", 400);
         }
 
         const data = await clientRequestService.getTimeAndDistance(

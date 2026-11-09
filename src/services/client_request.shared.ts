@@ -18,7 +18,7 @@ export const findTripOrFail = async (id: number) => {
         select: { id: true, id_client: true, id_driver_assigned: true, status: true, fare_offered: true, scheduled_at: true, expires_at: true }
     });
     if (!trip) {
-        throw new AppError("La solicitud de viaje no existe", 404);
+        throw new AppError("REQUEST_NOT_FOUND", 404);
     }
     return trip;
 }

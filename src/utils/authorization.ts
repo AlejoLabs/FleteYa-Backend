@@ -9,17 +9,19 @@ export const ACCOUNT_SUSPENDED = "ACCOUNT_SUSPENDED";
 export type RoleId = "CLIENT" | "DRIVER" | "ADMIN";
 
 export const suspendedError = (reason: string | null) =>
-    new AppError(`Tu cuenta está suspendida${reason ? `: ${reason}` : ""}. Si crees que es un error, escríbenos a soporte`, 403, ACCOUNT_SUSPENDED);
+    reason
+        ? new AppError("ACCOUNT_SUSPENDED_REASON", 403, ACCOUNT_SUSPENDED, { reason })
+        : new AppError("ACCOUNT_SUSPENDED_NO_REASON", 403, ACCOUNT_SUSPENDED);
 
 // El estado de la cuenta se consulta en cada petición, como los roles: una suspensión corta al instante,
 // aunque el token todavía no haya vencido. Una cuenta anonimizada ya no existe para la app
 export const assertActiveAccount = async (userId: number) => {
     if (!Number.isInteger(userId) || userId <= 0) {
-        throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
+        throw new AppError("TOKEN_INVALID", 401, SESSION_EXPIRED);
     }
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { status: true, status_reason: true, anonymized_at: true } });
     if (!user || user.anonymized_at) {
-        throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
+        throw new AppError("TOKEN_INVALID", 401, SESSION_EXPIRED);
     }
     if (user.status === "SUSPENDED") {
         throw suspendedError(user.status_reason);
@@ -29,14 +31,14 @@ export const assertActiveAccount = async (userId: number) => {
 // Cada acceso denegado queda registrado con quién lo intentó y sobre qué recurso
 export const deny = (userId: number | undefined, action: string, resource: string): AppError => {
     console.warn(`[authz] denegado usuario=${userId ?? "anonimo"} accion=${action} recurso=${resource}`);
-    return new AppError("No tienes permiso para realizar esta acción", 403);
+    return new AppError("FORBIDDEN_ACTION", 403);
 }
 
 // La identidad sale siempre del token verificado por authMiddleware, nunca del cuerpo de la petición
 export const getUserId = (req: Request): number => {
     const id = Number((req as any).user?.id);
     if (!Number.isInteger(id) || id <= 0) {
-        throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
+        throw new AppError("TOKEN_INVALID", 401, SESSION_EXPIRED);
     }
     return id;
 }

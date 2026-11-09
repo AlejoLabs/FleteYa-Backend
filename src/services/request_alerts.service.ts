@@ -1,6 +1,7 @@
 import prisma from "../database/prismaClient.js";
 import { canCarry } from "../utils/vehicles.js";
 import { formatPesos, sendPush } from "../utils/push.js";
+import { LOCALE_TAGS, t } from "../i18n/index.js";
 import { driverBlockReason, ELIGIBILITY_SELECT } from "./driver_eligibility.service.js";
 
 // Aviso push de una solicitud nueva a los conductores disponibles cerca de la recogida en cuyo vehículo cabe la carga.
@@ -8,15 +9,6 @@ import { driverBlockReason, ELIGIBILITY_SELECT } from "./driver_eligibility.serv
 // muestra su propia tarjeta y la app no muestra esta notificación
 
 const ALERT_RADIUS_M = 10000;
-
-const CATEGORY_LABELS: Record<string, string> = {
-    MUDANZA: "Mudanza",
-    MERCANCIA: "Mercancía",
-    MATERIALES: "Materiales de construcción",
-    MAQUINARIA: "Maquinaria",
-    ELECTRODOMESTICOS: "Electrodomésticos",
-    OTRO: "Carga",
-};
 
 // Nunca lanza: si falla, la solicitud ya quedó creada y los conductores la ven en su lista
 export const alertNearbyDrivers = async (idClientRequest: number) => {
@@ -47,19 +39,16 @@ export const alertNearbyDrivers = async (idClientRequest: number) => {
             weight_kg: trip.weight_kg ?? undefined, length_cm: trip.length_cm ?? undefined, width_cm: trip.width_cm ?? undefined,
             height_cm: trip.height_cm ?? undefined, packages: trip.packages, required_vehicle: trip.required_vehicle,
         };
-        const category = CATEGORY_LABELS[trip.cargo_category] ?? "Carga";
-        const when = trip.scheduled_at ? " · programado" : "";
 
         for (const car of cars) {
             // Aprobado pero con un documento vencido: no recibe avisos hasta renovarlo
             if (driverBlockReason(car) || !canCarry(car, cargo)) continue;
             const distance = drivers.find((driver) => driver.id_driver === car.id_driver)!.distance;
-            const km = (Number(distance) / 1000).toFixed(1).replace(".", ",");
-            void sendPush(car.id_driver, {
-                type: "NEW_REQUEST", id_client_request: idClientRequest,
-                title: "Nueva solicitud cerca",
-                body: `${formatPesos(trip.fare_offered)} · ${category} · a ${km} km${when}`,
-            });
+            const distanceKm = Number(distance) / 1000;
+            void sendPush(car.id_driver, (language) => ({
+                type: "NEW_REQUEST", id_client_request: idClientRequest, key: "NEW_REQUEST",
+                params: { amount: formatPesos(trip.fare_offered), category: t(language, `cargoCategories.${trip.cargo_category}`), km: distanceKm.toLocaleString(LOCALE_TAGS[language], { minimumFractionDigits: 1, maximumFractionDigits: 1 }), when: trip.scheduled_at ? t(language, "push.NEW_REQUEST.scheduled") : "" },
+            }));
         }
     } catch (err) {
         console.error(`[alertas] no se pudo avisar la solicitud ${idClientRequest}`, err);

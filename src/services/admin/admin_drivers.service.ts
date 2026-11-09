@@ -79,8 +79,8 @@ const review = async (adminId: number, idDriver: number, status: "APPROVED" | "R
     await setDriverCanWork(idDriver, driverBlockReason(updated) === null);
     notifyUser(idDriver, "driver_reviewed", { approval_status: status, approval_note: note });
     void sendPush(idDriver, status === "APPROVED"
-        ? { type: "DRIVER_REVIEWED", title: "¡Tu cuenta de conductor está aprobada!", body: "Ya puedes ponerte disponible y recibir fletes." }
-        : { type: "DRIVER_REVIEWED", title: "Revisa los datos de tu vehículo", body: note ?? "No pudimos aprobar tu vehículo." });
+        ? { type: "DRIVER_REVIEWED", key: "DRIVER_APPROVED" }
+        : note ? { type: "DRIVER_REVIEWED", key: "DRIVER_REJECTED", params: { note } } : { type: "DRIVER_REVIEWED", key: "DRIVER_REJECTED_NO_NOTE" });
     return { id_driver: idDriver, approval_status: status, approval_note: note };
 }
 

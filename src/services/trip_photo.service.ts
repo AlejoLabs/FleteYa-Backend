@@ -25,15 +25,15 @@ const formatPhoto = (photo: { id: number; id_client_request: number; kind: TripP
 const assertCanUpload = (trip: Trip, userId: number, kind: TripPhotoKind) => {
     if (kind === "CARGO") {
         if (trip.id_client !== userId) throw deny(userId, "foto-carga", `client_requests/${trip.id}`);
-        if (trip.status !== "CREATED") throw new AppError("Las fotos de la carga se suben mientras buscas conductor", 409);
+        if (trip.status !== "CREATED") throw new AppError("CARGO_PHOTOS_WHILE_SEARCHING", 409);
         return;
     }
     if (trip.id_driver_assigned !== userId) throw deny(userId, `foto-${kind.toLowerCase()}`, `client_requests/${trip.id}`);
     if (kind === "PICKUP" && trip.status !== "ARRIVED") {
-        throw new AppError("La foto al cargar se toma cuando llegas a recoger la carga", 409);
+        throw new AppError("PICKUP_PHOTO_ON_ARRIVAL", 409);
     }
     if (kind === "DELIVERY" && trip.status !== "TRAVELING") {
-        throw new AppError("La foto de entrega se toma cuando ya llevas la carga", 409);
+        throw new AppError("DELIVERY_PHOTO_ON_BOARD", 409);
     }
 }
 
@@ -50,7 +50,7 @@ export const addTripPhoto = async (userId: number, idTrip: number, kind: TripPho
 
     const count = await prisma.tripPhoto.count({ where: { id_client_request: idTrip, kind } });
     if (count >= MAX_PHOTOS[kind]) {
-        throw new AppError(`Ya subiste el máximo de ${MAX_PHOTOS[kind]} fotos de este tipo`, 409);
+        throw new AppError("PHOTO_LIMIT_REACHED", 409, undefined, { max: MAX_PHOTOS[kind] });
     }
 
     const fileName = await savePhoto(folderOf(idTrip), file);
@@ -84,7 +84,7 @@ export const getTripPhotoFile = async (userId: number, idTrip: number, idPhoto: 
     const kinds = await visibleKinds(trip, userId);
     const photo = await prisma.tripPhoto.findFirst({ where: { id: idPhoto, id_client_request: idTrip } });
     if (!photo || !kinds.includes(photo.kind)) {
-        throw new AppError("La foto no existe", 404);
+        throw new AppError("PHOTO_NOT_FOUND", 404);
     }
     return photoPath(folderOf(idTrip), photo.file_name);
 }
@@ -94,13 +94,13 @@ export const deleteTripPhoto = async (userId: number, idTrip: number, idPhoto: n
     const trip = await findTripOrFail(idTrip);
     const photo = await prisma.tripPhoto.findFirst({ where: { id: idPhoto, id_client_request: idTrip } });
     if (!photo) {
-        throw new AppError("La foto no existe", 404);
+        throw new AppError("PHOTO_NOT_FOUND", 404);
     }
     if (photo.kind !== "CARGO" || trip.id_client !== userId) {
         throw deny(userId, "borrar-foto", `trip_photos/${idPhoto}`);
     }
     if (trip.status !== "CREATED") {
-        throw new AppError("Las fotos de la carga ya no se pueden cambiar", 409);
+        throw new AppError("CARGO_PHOTOS_LOCKED", 409);
     }
     await prisma.tripPhoto.delete({ where: { id: idPhoto } });
     await deletePhotoFile(folderOf(idTrip), photo.file_name);

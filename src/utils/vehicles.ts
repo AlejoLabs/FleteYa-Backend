@@ -33,7 +33,7 @@ export const requiredVehicleFor = (cargo: CargoSize): VehicleType => {
         return weight <= cap.max_weight_kg && volume <= cap.max_volume_m3 && longest <= cap.max_length_cm;
     });
     if (!fits) {
-        throw new AppError("La carga supera la capacidad de un camión sencillo; divídela en varios fletes", 400);
+        throw new AppError("CARGO_EXCEEDS_TRUCK", 400);
     }
     return fits;
 }

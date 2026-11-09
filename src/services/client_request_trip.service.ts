@@ -31,7 +31,7 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
     }
     // Antes que la oferta: un viaje ya asignado, cancelado o vencido responde "no disponible", no "sin oferta"
     if (clientRequest.status !== "CREATED") {
-        throw new AppError("Este viaje ya no está disponible para asignar", 409);
+        throw new AppError("TRIP_NOT_ASSIGNABLE", 409);
     }
 
     // El precio sale de la oferta pendiente guardada, no de lo que mande la app: así nadie asigna un viaje con otro valor
@@ -40,7 +40,7 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
         orderBy: { created_at: "desc" }
     });
     if (!offer) {
-        throw new AppError("Ese conductor no tiene una oferta vigente para este viaje", 400);
+        throw new AppError("DRIVER_HAS_NO_OFFER", 400);
     }
     const commission = await commissionFor(offer.fare_offered);
 
@@ -59,7 +59,7 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
             }
         });
         if (result.count === 0) {
-            throw new AppError("Este viaje ya no está disponible para asignar", 409);
+            throw new AppError("TRIP_NOT_ASSIGNABLE", 409);
         }
 
         await tx.driverTripOffer.update({ where: { id: offer.id }, data: { status: "ACCEPTED" } });
@@ -80,8 +80,7 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
     }
     notifyDrivers("client_request_removed", { id_client_request: data.id });
     void sendPush(data.id_driver_assigned, {
-        type: "DRIVER_ASSIGNED", id_client_request: data.id,
-        title: "¡Te eligieron para un flete!", body: `El cliente aceptó tu oferta de ${formatPesos(offer.fare_offered)}. Ve a recoger la carga.`
+        type: "DRIVER_ASSIGNED", id_client_request: data.id, key: "DRIVER_ASSIGNED", params: { amount: formatPesos(offer.fare_offered) },
     });
 
     return prisma.clientRequests.findUnique({
@@ -107,13 +106,13 @@ export const updateStatus = async (userId: number, data: UpdateClientRequestInpu
 
     const nextStatus = data.status as ClientRequestStatus;
     if (nextStatus === "FINISHED" && clientRequest.status === "TRAVELING") {
-        throw new AppError("Para terminar, toma la foto de entrega y escribe el código que te dicta quien recibe", 409);
+        throw new AppError("DELIVERY_PROOF_REQUIRED", 409);
     }
     if (!(NEXT_STATUSES[clientRequest.status] ?? []).includes(nextStatus)) {
-        throw new AppError(`No se puede pasar de ${clientRequest.status} a ${nextStatus}`, 409);
+        throw new AppError("INVALID_STATUS_CHANGE", 409, undefined, { from: clientRequest.status, to: nextStatus });
     }
     if (nextStatus === "TRAVELING" && await countTripPhotos(data.id, "PICKUP") === 0) {
-        throw new AppError("Toma al menos una foto de la carga al recogerla", 409);
+        throw new AppError("PICKUP_PHOTO_REQUIRED", 409);
     }
 
     // Con el estado actual en el where, una cancelación simultánea no queda pisada por este cambio
@@ -122,12 +121,12 @@ export const updateStatus = async (userId: number, data: UpdateClientRequestInpu
         data: { status: nextStatus }
     });
     if (result.count === 0) {
-        throw new AppError("El viaje cambió mientras tanto; vuelve a cargarlo", 409);
+        throw new AppError("TRIP_CHANGED", 409);
     }
     if (nextStatus === "ARRIVED") {
-        void sendPush(clientRequest.id_client, { type: "DRIVER_ARRIVED", id_client_request: data.id, title: "Tu conductor llegó", body: "Ya está en el punto de recogida." });
+        void sendPush(clientRequest.id_client, { type: "DRIVER_ARRIVED", id_client_request: data.id, key: "DRIVER_ARRIVED" });
     } else if (nextStatus === "TRAVELING") {
-        void sendPush(clientRequest.id_client, { type: "CARGO_PICKED_UP", id_client_request: data.id, title: "Carga recogida", body: "Tu carga va en camino al destino." });
+        void sendPush(clientRequest.id_client, { type: "CARGO_PICKED_UP", id_client_request: data.id, key: "CARGO_PICKED_UP" });
     }
     return prisma.clientRequests.findUnique({ where: { id: data.id } });
 }
@@ -139,15 +138,15 @@ const finishTrip = async (id: number, idClient: number, idDriver: number, confir
         data: { status: "FINISHED" }
     });
     if (result.count === 0) {
-        throw new AppError("El viaje cambió mientras tanto; vuelve a cargarlo", 409);
+        throw new AppError("TRIP_CHANGED", 409);
     }
     const payload = { id_client_request: id, status: "FINISHED" };
     notifyUser(idClient, `new_status_trip/${id}`, payload);
     notifyUser(idDriver, `new_status_trip/${id}`, payload);
     if (confirmedBy === "DRIVER") {
-        void sendPush(idClient, { type: "DELIVERED", id_client_request: id, title: "Carga entregada", body: "El conductor entregó tu carga. Califica el servicio." });
+        void sendPush(idClient, { type: "DELIVERED", id_client_request: id, key: "DELIVERED_CLIENT" });
     } else {
-        void sendPush(idDriver, { type: "DELIVERED", id_client_request: id, title: "Entrega confirmada", body: "El cliente confirmó que recibió la carga." });
+        void sendPush(idDriver, { type: "DELIVERED", id_client_request: id, key: "DELIVERED_DRIVER" });
     }
     return { id, status: "FINISHED" };
 }
@@ -159,23 +158,23 @@ export const deliverWithCode = async (userId: number, id: number, data: DeliverI
         select: { id_client: true, id_driver_assigned: true, status: true, delivery_code: true, delivery_code_attempts: true }
     });
     if (!trip) {
-        throw new AppError("La solicitud de viaje no existe", 404);
+        throw new AppError("REQUEST_NOT_FOUND", 404);
     }
     if (trip.id_driver_assigned !== userId) {
         throw deny(userId, "entregar", `client_requests/${id}`);
     }
     if (trip.status !== "TRAVELING") {
-        throw new AppError("Solo se entrega una carga que ya recogiste", 409);
+        throw new AppError("ONLY_DELIVER_PICKED_UP", 409);
     }
     if (await countTripPhotos(id, "DELIVERY") === 0) {
-        throw new AppError("Toma una foto de la carga entregada antes de cerrar el viaje", 409);
+        throw new AppError("DELIVERY_PHOTO_REQUIRED", 409);
     }
     // Viajes asignados antes de la Fase 5 no tienen código
     if (!trip.delivery_code) {
-        throw new AppError("Este viaje no tiene código: pide al cliente que confirme la entrega desde su app", 409);
+        throw new AppError("NO_DELIVERY_CODE", 409);
     }
     if (trip.delivery_code_attempts >= MAX_DELIVERY_ATTEMPTS) {
-        throw new AppError("Se agotaron los intentos: pide al cliente que confirme la entrega desde su app", 429);
+        throw new AppError("DELIVERY_ATTEMPTS_EXHAUSTED", 429);
     }
 
     // Comparación en tiempo constante, como con los códigos de contraseña
@@ -187,9 +186,9 @@ export const deliverWithCode = async (userId: number, id: number, data: DeliverI
             // El cliente ve en su app el botón para confirmar la entrega él mismo
             notifyUser(trip.id_client, `delivery_locked/${id}`, { id_client_request: id });
         }
-        throw new AppError(left > 0
-            ? `Código incorrecto. Te quedan ${left} ${left === 1 ? "intento" : "intentos"}`
-            : "Código incorrecto. Se agotaron los intentos: pide al cliente que confirme la entrega desde su app", 400);
+        throw left > 0
+            ? new AppError("WRONG_DELIVERY_CODE", 400, undefined, { count: left })
+            : new AppError("WRONG_DELIVERY_CODE_LOCKED", 400);
     }
     return finishTrip(id, trip.id_client, userId, "DRIVER");
 }
@@ -202,16 +201,16 @@ export const confirmDelivery = async (userId: number, id: number) => {
         select: { id_client: true, id_driver_assigned: true, status: true, delivery_code: true, delivery_code_attempts: true }
     });
     if (!trip) {
-        throw new AppError("La solicitud de viaje no existe", 404);
+        throw new AppError("REQUEST_NOT_FOUND", 404);
     }
     if (trip.id_client !== userId) {
         throw deny(userId, "confirmar-entrega", `client_requests/${id}`);
     }
     if (trip.status !== "TRAVELING") {
-        throw new AppError("Solo se confirma la entrega de una carga que va en camino", 409);
+        throw new AppError("ONLY_CONFIRM_IN_TRANSIT", 409);
     }
     if (trip.delivery_code && trip.delivery_code_attempts < MAX_DELIVERY_ATTEMPTS) {
-        throw new AppError("La entrega se cierra con el código: díctaselo al conductor cuando recibas la carga", 409);
+        throw new AppError("DELIVERY_NEEDS_CODE", 409);
     }
     return finishTrip(id, userId, trip.id_driver_assigned!, "CLIENT");
 }
@@ -230,10 +229,10 @@ export const cancelClientRequest = async (userId: number, id: number, data: Canc
 
     const allowed = isClient ? CLIENT_CANCELABLE : DRIVER_CANCELABLE;
     if (trip.status === "TRAVELING") {
-        throw new AppError("La carga ya fue recogida: termina el viaje para cerrarlo", 409);
+        throw new AppError("CARGO_ALREADY_PICKED_UP", 409);
     }
     if (!allowed.includes(trip.status)) {
-        throw new AppError("Este viaje ya no se puede cancelar", 409);
+        throw new AppError("TRIP_NOT_CANCELABLE", 409);
     }
 
     await prisma.$transaction(async (tx) => {
@@ -242,7 +241,7 @@ export const cancelClientRequest = async (userId: number, id: number, data: Canc
             data: { status: "CANCELED", canceled_by: userId, cancel_reason: data.reason }
         });
         if (result.count === 0) {
-            throw new AppError("El viaje cambió mientras tanto; vuelve a cargarlo", 409);
+            throw new AppError("TRIP_CHANGED", 409);
         }
         await tx.driverTripOffer.updateMany({
             where: { id_client_request: id, status: "PENDING" },
@@ -258,7 +257,7 @@ export const cancelClientRequest = async (userId: number, id: number, data: Canc
         notifyUser(otherUser, `trip_canceled/${id}`, payload);
         void sendPush(otherUser, {
             type: "TRIP_CANCELED", id_client_request: id,
-            title: isClient ? "El cliente canceló el flete" : "El conductor canceló el flete", body: `Motivo: ${data.reason}`
+            key: isClient ? "TRIP_CANCELED_BY_CLIENT" : "TRIP_CANCELED_BY_DRIVER", params: { reason: data.reason },
         });
     }
     return { id, status: "CANCELED", ...payload };
@@ -272,7 +271,7 @@ export const updateClientRating = async (userId: number, data: UpdateClientRatin
         throw deny(userId, "calificar-cliente", `client_requests/${data.id}`);
     }
     if (clientRequest.status !== "FINISHED") {
-        throw new AppError("Solo se puede calificar un viaje finalizado", 409);
+        throw new AppError("ONLY_RATE_FINISHED", 409);
     }
 
     const { count } = await prisma.clientRequests.updateMany({
@@ -280,7 +279,7 @@ export const updateClientRating = async (userId: number, data: UpdateClientRatin
         data: { client_rating: data.client_rating }
     });
     if (count === 0) {
-        throw new AppError("Ya calificaste a este cliente", 409);
+        throw new AppError("CLIENT_ALREADY_RATED", 409);
     }
     return { id: data.id, client_rating: data.client_rating };
 }
@@ -292,7 +291,7 @@ export const updateDriverRating = async (userId: number, data: UpdateDriverRatin
         throw deny(userId, "calificar-conductor", `client_requests/${data.id}`);
     }
     if (clientRequest.status !== "FINISHED") {
-        throw new AppError("Solo se puede calificar un viaje finalizado", 409);
+        throw new AppError("ONLY_RATE_FINISHED", 409);
     }
 
     const { count } = await prisma.clientRequests.updateMany({
@@ -300,7 +299,7 @@ export const updateDriverRating = async (userId: number, data: UpdateDriverRatin
         data: { driver_rating: data.driver_rating }
     });
     if (count === 0) {
-        throw new AppError("Ya calificaste a este conductor", 409);
+        throw new AppError("DRIVER_ALREADY_RATED", 409);
     }
     return { id: data.id, driver_rating: data.driver_rating };
 }

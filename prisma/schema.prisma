@@ -27,6 +27,8 @@ model User {
   email_verified Boolean @default(false)
   // Token de Firebase Cloud Messaging del teléfono donde tiene la sesión abierta; null al cerrar sesión
   notification_token String? @db.VarChar(255)
+  // Idioma de la app de esta persona (es, en, fr, it, pt, de): en él se escriben sus notificaciones y correos
+  language String @default("es") @db.VarChar(5)
   created_at DateTime @default(now())
   update_at DateTime @updatedAt
 

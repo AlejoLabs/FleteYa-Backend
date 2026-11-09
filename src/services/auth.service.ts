@@ -7,10 +7,12 @@ import type { ChangePasswordInput, GoogleLinkInput, LoginInput, RegisterDriverIn
 import { generateToken } from "../config/jwt.js";
 import type { createUserInput } from "../validators/user.validator.js";
 import { sendMail } from "../utils/mailer.js";
+import { normalizeLanguage, okMessage } from "../i18n/index.js";
+import { resetCodeMail } from "../utils/mailTemplates.js";
 import { suspendedError, type RoleId } from "../utils/authorization.js";
 import { assertLoginAllowed, clearLoginFailures, registerLoginFailure } from "../utils/loginThrottle.js";
 
-const GOOGLE_ACCOUNT_MESSAGE = "Esta cuenta se creó con Google. Entra con Google o crea una contraseña con \"¿Olvidaste tu contraseña?\"";
+const GOOGLE_ACCOUNT_MESSAGE = "GOOGLE_ACCOUNT_NO_PASSWORD";
 
 // Respuesta de login común a todos los caminos (correo, registro, Google): token y usuario con sus roles
 const buildAuthResponse = async (userId: number) => {
@@ -48,9 +50,9 @@ const assertEmailAvailable = async (email: string) => {
     const existing = await prisma.user.findUnique({ where: { email }, select: { password: true, google_id: true } });
     if (!existing) return;
     if (existing.password === null && existing.google_id !== null) {
-        throw new AppError("Este correo ya está registrado con Google. Entra con Google", 409);
+        throw new AppError("EMAIL_REGISTERED_WITH_GOOGLE", 409);
     }
-    throw new AppError("Ya existe una cuenta con este correo. Inicia sesión o recupera tu contraseña", 409);
+    throw new AppError("EMAIL_ALREADY_REGISTERED", 409);
 }
 
 const createUserWithRole = async (tx: any, data: createUserInput, role: RoleId) => {
@@ -61,6 +63,8 @@ const createUserWithRole = async (tx: any, data: createUserInput, role: RoleId) 
             email: data.email,
             phone: data.phone,
             password: await bcrypt.hash(data.password, 10),
+            // El idioma del teléfono al registrarse; después se cambia desde el perfil
+            language: normalizeLanguage(data.language),
         }
     });
     await tx.userHasRole.create({ data: { id_user: user.id, id_rol: role } });
@@ -79,7 +83,7 @@ export const registerDriver = async (data: RegisterDriverInput) => {
     await assertEmailAvailable(data.email);
     const plateTaken = await prisma.driverCarInfo.findFirst({ where: { plate: data.vehicle.plate }, select: { id_driver: true } });
     if (plateTaken) {
-        throw new AppError("Esa placa ya está registrada con otro conductor", 409);
+        throw new AppError("PLATE_ALREADY_REGISTERED", 409);
     }
 
     const user = await prisma.$transaction(async (tx) => {
@@ -114,14 +118,14 @@ export const loginUser = async (data: LoginInput) => {
     // Mismo mensaje si el correo no existe o la contraseña falla: así no se puede averiguar qué correos están registrados
     if (!user) {
         registerLoginFailure(data.email);
-        throw new AppError("Correo o contraseña incorrectos", 401);
+        throw new AppError("WRONG_CREDENTIALS", 401);
     }
     if (user.password === null) {
         throw new AppError(GOOGLE_ACCOUNT_MESSAGE, 401);
     }
     if (!(await bcrypt.compare(data.password, user.password))) {
         registerLoginFailure(data.email);
-        throw new AppError("Correo o contraseña incorrectos", 401);
+        throw new AppError("WRONG_CREDENTIALS", 401);
     }
     clearLoginFailures(data.email);
     return buildAuthResponse(user.id);
@@ -136,12 +140,12 @@ const MAX_CODES_PER_HOUR = 5;
 
 const hashCode = (code: string) => crypto.createHash("sha256").update(code).digest("hex");
 
-export const FORGOT_PASSWORD_MESSAGE = "Si el correo está registrado, te enviamos un código para restablecer la contraseña";
+const forgotPasswordReply = () => okMessage("FORGOT_PASSWORD_SENT");
 
 // Siempre responde lo mismo, exista o no el correo. Limita a un código por minuto y cinco por hora
 export const forgotPassword = async (email: string) => {
-    const user = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, email: true } });
-    if (!user) return { message: FORGOT_PASSWORD_MESSAGE };
+    const user = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, language: true } });
+    if (!user) return forgotPasswordReply();
 
     const recent = await prisma.passwordResetCode.findMany({
         where: { id_user: user.id, created_at: { gt: new Date(Date.now() - 60 * 60 * 1000) } },
@@ -151,7 +155,7 @@ export const forgotPassword = async (email: string) => {
     const tooSoon = recent[0] && Date.now() - recent[0].created_at.getTime() < RESEND_WAIT_MS;
     if (tooSoon || recent.length >= MAX_CODES_PER_HOUR) {
         console.warn(`[reset] límite de códigos usuario=${user.id}`);
-        return { message: FORGOT_PASSWORD_MESSAGE };
+        return forgotPasswordReply();
     }
 
     const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
@@ -164,23 +168,17 @@ export const forgotPassword = async (email: string) => {
     ]);
 
     try {
-        await sendMail(
-            user.email,
-            "Tu código para restablecer la contraseña de FleteYa",
-            `Hola ${user.name}, tu código es ${code}. Vence en 15 minutos. Si no lo pediste, ignora este correo.`,
-            `<p>Hola ${user.name},</p><p>Tu código para restablecer la contraseña de FleteYa es:</p>` +
-            `<p style="font-size:28px;font-weight:bold;letter-spacing:6px">${code}</p>` +
-            `<p>Vence en 15 minutos. Si no lo pediste, ignora este correo.</p>`
-        );
+        const mail = resetCodeMail(user.language, user.name, code, CODE_TTL_MS / 60000);
+        await sendMail(user.email, mail.subject, mail.text, mail.html);
     } catch (err) {
         console.error(`[reset] no se pudo enviar el correo usuario=${user.id}`, err);
-        throw new AppError("No pudimos enviar el correo en este momento. Intenta de nuevo en unos minutos", 503);
+        throw new AppError("EMAIL_SEND_FAILED", 503);
     }
-    return { message: FORGOT_PASSWORD_MESSAGE };
+    return forgotPasswordReply();
 }
 
 export const resetPassword = async (data: ResetPasswordInput) => {
-    const invalid = new AppError("El código es incorrecto o ya venció. Pide uno nuevo", 400);
+    const invalid = new AppError("CODE_INVALID", 400);
     const user = await prisma.user.findUnique({ where: { email: data.email }, select: { id: true } });
     if (!user) throw invalid;
 
@@ -202,7 +200,7 @@ export const resetPassword = async (data: ResetPasswordInput) => {
         // Recibió el código en ese correo, así que el correo queda comprobado
         prisma.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash(data.password, 10), email_verified: true } }),
     ]);
-    return { message: "Contraseña actualizada. Ya puedes iniciar sesión" };
+    return okMessage("PASSWORD_RESET_DONE");
 }
 
 // Cambiar la contraseña desde el perfil. Si ya tiene una, se pide la actual (alguien con el celular desbloqueado
@@ -211,14 +209,14 @@ export const changePassword = async (userId: number, data: ChangePasswordInput) 
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { password: true } });
     if (user.password !== null) {
         if (!data.current_password || !(await bcrypt.compare(data.current_password, user.password))) {
-            throw new AppError("La contraseña actual no es correcta", 400);
+            throw new AppError("CURRENT_PASSWORD_WRONG", 400);
         }
         if (await bcrypt.compare(data.new_password, user.password)) {
-            throw new AppError("La nueva contraseña debe ser distinta a la actual", 400);
+            throw new AppError("NEW_PASSWORD_SAME", 400);
         }
     }
     await prisma.user.update({ where: { id: userId }, data: { password: await bcrypt.hash(data.new_password, 10) } });
-    return { message: user.password === null ? "Contraseña creada. Ya puedes entrar también con tu correo" : "Contraseña actualizada" };
+    return okMessage(user.password === null ? "PASSWORD_CREATED" : "PASSWORD_UPDATED");
 }
 
 // ---------- Entrar con Google ----------
@@ -229,7 +227,7 @@ const googleClient = new OAuth2Client();
 const verifyGoogleToken = async (idToken: string) => {
     const audience = process.env.GOOGLE_WEB_CLIENT_ID;
     if (!audience) {
-        throw new AppError("El inicio con Google no está configurado en el servidor", 503);
+        throw new AppError("GOOGLE_NOT_CONFIGURED", 503);
     }
     try {
         const ticket = await googleClient.verifyIdToken({ idToken, audience });
@@ -244,13 +242,13 @@ const verifyGoogleToken = async (idToken: string) => {
         };
     } catch (err) {
         console.warn("[google] token rechazado", (err as Error).message);
-        throw new AppError("No pudimos validar tu cuenta de Google", 401);
+        throw new AppError("GOOGLE_VALIDATION_FAILED", 401);
     }
 }
 
 export const GOOGLE_LINK_REQUIRED = "LINK_REQUIRED";
 
-export const loginWithGoogle = async (idToken: string) => {
+export const loginWithGoogle = async (idToken: string, language?: string) => {
     const google = await verifyGoogleToken(idToken);
 
     const linked = await prisma.user.findUnique({ where: { google_id: google.googleId }, select: { id: true } });
@@ -260,7 +258,7 @@ export const loginWithGoogle = async (idToken: string) => {
     if (existing) {
         // La cuenta existía con contraseña: no se vincula sola, porque ese correo nunca se comprobó al registrarse
         // y cualquiera pudo haberla creado. La app pide la contraseña y llama a /auth/google/link
-        throw new AppError("Ya tienes una cuenta con este correo. Escribe tu contraseña una vez para vincular Google", 409, GOOGLE_LINK_REQUIRED);
+        throw new AppError("GOOGLE_LINK_PASSWORD_NEEDED", 409, GOOGLE_LINK_REQUIRED);
     }
 
     const user = await prisma.$transaction(async (tx) => {
@@ -275,6 +273,7 @@ export const loginWithGoogle = async (idToken: string) => {
                 password: null,
                 google_id: google.googleId,
                 email_verified: true,
+                language: normalizeLanguage(language),
             }
         });
         await tx.userHasRole.create({ data: { id_user: user.id, id_rol: "CLIENT" } });
@@ -287,10 +286,10 @@ export const linkGoogle = async (data: GoogleLinkInput) => {
     const google = await verifyGoogleToken(data.id_token);
     const user = await prisma.user.findUnique({ where: { email: google.email }, select: { id: true, password: true, google_id: true } });
     if (!user || user.password === null || !(await bcrypt.compare(data.password, user.password))) {
-        throw new AppError("La contraseña no es correcta", 401);
+        throw new AppError("PASSWORD_WRONG", 401);
     }
     if (user.google_id && user.google_id !== google.googleId) {
-        throw new AppError("Esta cuenta ya está vinculada con otra cuenta de Google", 409);
+        throw new AppError("GOOGLE_ALREADY_LINKED", 409);
     }
     await prisma.user.update({ where: { id: user.id }, data: { google_id: google.googleId, email_verified: true } });
     console.log(`[google] cuenta vinculada usuario=${user.id}`);

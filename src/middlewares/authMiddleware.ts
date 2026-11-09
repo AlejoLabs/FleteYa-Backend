@@ -14,7 +14,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        throw new AppError("Token no proporcionado o no es valido", 401, SESSION_EXPIRED);
+        throw new AppError("TOKEN_MISSING", 401, SESSION_EXPIRED);
     }
 
     const token = authHeader.split(" ")[1];
@@ -24,7 +24,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
         decoded = verifyToken(token!);
     }
     catch(err){
-        throw new AppError("Token no valido o expirado", 401, SESSION_EXPIRED);
+        throw new AppError("TOKEN_INVALID", 401, SESSION_EXPIRED);
     }
     req.user = decoded;
     await assertActiveAccount(Number(decoded?.id));

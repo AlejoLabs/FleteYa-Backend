@@ -17,11 +17,11 @@ const formatPhoto = (photo: { id: number; id_driver: number; created_at: Date })
 export const addVehiclePhoto = async (idDriver: number, file?: Express.Multer.File) => {
     const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { id_driver: true } });
     if (!car) {
-        throw new AppError("Primero registra tu vehículo", 404);
+        throw new AppError("REGISTER_VEHICLE_FIRST", 404);
     }
     const count = await prisma.vehiclePhoto.count({ where: { id_driver: idDriver } });
     if (count >= MAX_VEHICLE_PHOTOS) {
-        throw new AppError(`Ya subiste el máximo de ${MAX_VEHICLE_PHOTOS} fotos del vehículo`, 409);
+        throw new AppError("VEHICLE_PHOTO_LIMIT", 409, undefined, { max: MAX_VEHICLE_PHOTOS });
     }
     const fileName = await savePhoto(folderOf(idDriver), file);
     const photo = await prisma.vehiclePhoto.create({ data: { id_driver: idDriver, file_name: fileName } });
@@ -36,7 +36,7 @@ export const listVehiclePhotos = async (idDriver: number) => {
 export const getVehiclePhotoFile = async (idDriver: number, idPhoto: number) => {
     const photo = await prisma.vehiclePhoto.findFirst({ where: { id: idPhoto, id_driver: idDriver } });
     if (!photo) {
-        throw new AppError("La foto no existe", 404);
+        throw new AppError("PHOTO_NOT_FOUND", 404);
     }
     return photoPath(folderOf(idDriver), photo.file_name);
 }
@@ -45,7 +45,7 @@ export const getVehiclePhotoFile = async (idDriver: number, idPhoto: number) => 
 export const deleteVehiclePhoto = async (idDriver: number, idPhoto: number) => {
     const photo = await prisma.vehiclePhoto.findFirst({ where: { id: idPhoto, id_driver: idDriver } });
     if (!photo) {
-        throw new AppError("La foto no existe", 404);
+        throw new AppError("PHOTO_NOT_FOUND", 404);
     }
     await prisma.vehiclePhoto.delete({ where: { id: idPhoto } });
     await deletePhotoFile(folderOf(idDriver), photo.file_name);

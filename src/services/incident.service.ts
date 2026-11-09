@@ -35,15 +35,15 @@ const formatIncident = (incident: IncidentWithPhotos) => ({
 // Se reporta un viaje que tuvo conductor: en curso, o terminado o cancelado hace menos de una semana
 const assertCanReport = async (idTrip: number, trip: Awaited<ReturnType<typeof assertTripParticipant>>) => {
     if (!trip.id_driver_assigned) {
-        throw new AppError("Solo puedes reportar un viaje que ya tiene conductor", 409);
+        throw new AppError("REPORT_NEEDS_DRIVER", 409);
     }
     if (ACTIVE_STATUSES.includes(trip.status)) return;
     if (trip.status === "FINISHED" || trip.status === "CANCELED") {
         const { update_at } = await prisma.clientRequests.findUniqueOrThrow({ where: { id: idTrip }, select: { update_at: true } });
         if (Date.now() - update_at.getTime() <= REPORT_WINDOW_MS) return;
-        throw new AppError("Pasó más de una semana desde el viaje: escríbenos a soporte para reportarlo", 409);
+        throw new AppError("REPORT_TOO_LATE", 409);
     }
-    throw new AppError("Este viaje no se puede reportar", 409);
+    throw new AppError("TRIP_NOT_REPORTABLE", 409);
 }
 
 export const createIncident = async (
@@ -54,7 +54,7 @@ export const createIncident = async (
 
     const previous = await prisma.incidentReport.count({ where: { id_client_request: idTrip, id_reporter: userId } });
     if (previous >= MAX_REPORTS_PER_TRIP) {
-        throw new AppError(`Ya enviaste ${MAX_REPORTS_PER_TRIP} reportes de este viaje. Te contactaremos pronto`, 409);
+        throw new AppError("REPORT_LIMIT_REACHED", 409, undefined, { max: MAX_REPORTS_PER_TRIP });
     }
 
     // Si una foto no es válida o la BD falla, no quedan archivos sueltos en disco
@@ -98,7 +98,7 @@ export const getIncidentPhotoFile = async (userId: number, idTrip: number, idInc
         include: { incident: { select: { id_reporter: true } } }
     });
     if (!photo) {
-        throw new AppError("La foto no existe", 404);
+        throw new AppError("PHOTO_NOT_FOUND", 404);
     }
     if (photo.incident.id_reporter !== userId) {
         throw deny(userId, "ver-foto-incidente", `incident_photos/${idPhoto}`);

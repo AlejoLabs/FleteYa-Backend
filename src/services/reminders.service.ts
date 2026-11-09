@@ -1,5 +1,6 @@
 import prisma from "../database/prismaClient.js";
 import { sendPush } from "../utils/push.js";
+import { t, type Language } from "../i18n/index.js";
 import { documentsStatus, EXPIRING_SOON_DAYS } from "./driver_car_info.service.js";
 
 // Recordatorios que corren solos desde server.ts
@@ -31,16 +32,21 @@ export const sendScheduledReminders = async () => {
         if (claimed.count === 0) continue;
 
         const minutes = Math.max(1, Math.round((trip.scheduled_at!.getTime() - now.getTime()) / 60000));
-        const body = `Tu flete empieza en ${minutes} minutos. Recogida: ${trip.pickup_description}`;
-        void sendPush(trip.id_client, { type: "SCHEDULED_REMINDER", id_client_request: trip.id, title: "Tu flete es pronto", body });
+        const params = { count: minutes, pickup: trip.pickup_description };
+        void sendPush(trip.id_client, { type: "SCHEDULED_REMINDER", id_client_request: trip.id, key: "SCHEDULED_REMINDER_CLIENT", params });
         if (trip.id_driver_assigned) {
-            void sendPush(trip.id_driver_assigned, { type: "SCHEDULED_REMINDER", id_client_request: trip.id, title: "Tienes un flete pronto", body });
+            void sendPush(trip.id_driver_assigned, { type: "SCHEDULED_REMINDER", id_client_request: trip.id, key: "SCHEDULED_REMINDER_DRIVER", params });
         }
     }
 }
 
-const describe = (doc: { label: string; days_left: number; status: string }) =>
-    doc.status === "EXPIRED" ? `${doc.label} está vencido` : `${doc.label} vence en ${doc.days_left} ${doc.days_left === 1 ? "día" : "días"}`;
+// "SOAT vence en 5 días" / "SOAT está vencido", con el nombre del documento en el idioma de quien lo recibe
+const describe = (language: Language, doc: { key: string; days_left: number; status: string }) => {
+    const label = t(language, `docs.${doc.key}`);
+    return doc.status === "EXPIRED"
+        ? t(language, "push.DOCUMENTS_EXPIRING.expired", { label })
+        : t(language, "push.DOCUMENTS_EXPIRING.expiresIn", { label, count: doc.days_left });
+}
 
 // Conductores con algún documento vencido o que vence en los próximos 30 días
 export const remindExpiringDocuments = async () => {
@@ -63,11 +69,11 @@ export const remindExpiringDocuments = async () => {
         const pending = documentsStatus(car, now).filter((doc) => doc.status !== "OK");
         if (!pending.length) continue;
         await prisma.driverCarInfo.update({ where: { id_driver: car.id_driver }, data: { documents_reminded_at: now } });
-        void sendPush(car.id_driver, {
+        void sendPush(car.id_driver, (language) => ({
             type: "DOCUMENTS_EXPIRING",
-            title: pending.some((doc) => doc.status === "EXPIRED") ? "Tienes documentos vencidos" : "Tus documentos están por vencer",
-            body: `${pending.map(describe).join(". ")}. Renuévalos para seguir recibiendo fletes.`
-        });
+            key: pending.some((doc) => doc.status === "EXPIRED") ? "DOCUMENTS_EXPIRED" : "DOCUMENTS_EXPIRING",
+            params: { list: pending.map((doc) => describe(language, doc)).join(". ") },
+        }));
     }
     if (cars.length) console.log(`[recordatorios] documentos revisados de ${cars.length} conductores`);
 }

@@ -21,7 +21,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     try {
         const exists = await userService.findByEmail(req.body.email);
         if (exists){
-            throw new AppError("El email ya existe", 409);
+            throw new AppError("EMAIL_EXISTS", 409);
         }
         const user = await userService.createUserService(req.body);
         return res.status(201).json(user);
@@ -40,6 +40,15 @@ export const findById = async (req: Request, res: Response, next: NextFunction) 
     }
 
 }
+export const updateLanguage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await userService.updateLanguage(getUserId(req), req.body.language);
+        return res.status(200).json(result);
+    } catch (err) {
+        next(err);
+    }
+}
+
 export const saveNotificationToken = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = await userService.saveNotificationToken(getUserId(req), req.body.token);

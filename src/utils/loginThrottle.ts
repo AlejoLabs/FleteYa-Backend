@@ -15,7 +15,7 @@ export const assertLoginAllowed = (email: string) => {
     if (entry && entry.lockedUntil > Date.now()) {
         const minutes = Math.ceil((entry.lockedUntil - Date.now()) / 60000);
         console.warn(`[auth] login bloqueado correo=${keyFor(email)} minutos=${minutes}`);
-        throw new AppError(`Demasiados intentos. Espera ${minutes} ${minutes === 1 ? "minuto" : "minutos"} o restablece tu contraseña`, 429);
+        throw new AppError("TOO_MANY_LOGIN_ATTEMPTS", 429, undefined, { count: minutes });
     }
 };
 

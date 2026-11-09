@@ -2,13 +2,14 @@ import prisma from "../database/prismaClient.js";
 import bcrypt from "bcryptjs";
 import type { createUserInput, updateUserInput } from "../validators/user.validator.js";
 import { AppError } from "../utils/App.Error.js";
+import type { Language } from "../i18n/languages.js";
 
 
 export const update = async (id: number, data: updateUserInput, file?: Express.Multer.File) => {
     const user = await prisma.user.findUnique({ where: { id: id } });
 
     if (!user) {
-        throw new AppError("Usuario no encontrado", 404);
+        throw new AppError("USER_NOT_FOUND", 404);
     }
 
     let imagePath = user.image;
@@ -75,7 +76,7 @@ export const findByEmail = async (email: string) => {
 export const findById = async (id: number) => {
     const user = await prisma.user.findUnique({ where: { id: id } });
     if (!user) {
-        throw new AppError("Usuario no encontrado", 404);
+        throw new AppError("USER_NOT_FOUND", 404);
     }
 
     const { password, google_id, ...userData } = user;
@@ -85,6 +86,12 @@ export const findById = async (id: number) => {
         image: userData.image ? `http://${process.env.HOST}:${process.env.PORT}${userData.image}` : null,
     };
 }
+// El idioma de la app de esta persona: en él se escriben sus notificaciones y correos
+export const updateLanguage = async (id: number, language: Language) => {
+    await prisma.user.update({ where: { id }, data: { language } });
+    return { language };
+}
+
 // Un teléfono tiene un solo token: si otra cuenta lo tenía (cerró sesión y entró otra persona), se le quita
 export const saveNotificationToken = async (id: number, token: string | null) => {
     if (token) {
