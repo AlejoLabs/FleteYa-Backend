@@ -1,10 +1,12 @@
 import { TEST_BANKS, type SimulatorMethod } from "../utils/simulatorTestData.js";
+import { formatMoney } from "../utils/money.js";
 
 // Páginas del simulador de pagos: checkout con tarjeta, Nequi y PSE, "procesando" y comprobante.
 // Se abren en el navegador del teléfono, así que todo va en línea (sin archivos ni librerías externas)
 
 export const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-const pesos = (cents: number) => `$${Math.round(cents / 100).toLocaleString("es-CO")}`;
+// El monto llega en centavos de la moneda del viaje ("$ 25.000" en pesos, "25,50 €" en euros)
+const amountText = (cents: number, currency: string) => formatMoney(cents / 100, currency, "es-CO");
 
 const STYLE = `
   * { box-sizing: border-box; }
@@ -62,12 +64,13 @@ const METHOD_TABS: { method: SimulatorMethod; label: string }[] = [
 interface CheckoutOptions {
     reference: string;
     amountCents: number;
+    currency: string;
     active?: SimulatorMethod;
     error?: string;
 }
 
-export const checkoutPage = ({ reference, amountCents, active = "CARD", error }: CheckoutOptions) => {
-    const amount = pesos(amountCents);
+export const checkoutPage = ({ reference, amountCents, currency, active = "CARD", error }: CheckoutOptions) => {
+    const amount = amountText(amountCents, currency);
     const tabs = METHOD_TABS.map(({ method, label }) =>
         `<button type="button" role="tab" data-tab="${method}" aria-selected="${method === active}">${label}</button>`).join("");
     const hidden = (method: SimulatorMethod) => method === active ? "" : "hidden";
@@ -150,6 +153,7 @@ interface ResultOptions {
     transactionId: string;
     description: string;
     amountCents: number;
+    currency: string;
 }
 
 // Enlace que abre la app (esquema fleteya, registrado en el AndroidManifest); la app verifica el pago al volver
@@ -162,13 +166,13 @@ const returnToApp = (reference: string, delayMs: number) => `
 <a class="pay" style="${RETURN_STYLE}" href="${appReturnLink(reference)}">Volver a FleteYa</a>
 <script>setTimeout(function () { window.location.href = ${JSON.stringify(appReturnLink(reference))}; }, ${delayMs});</script>`;
 
-export const resultPage = ({ approved, reference, transactionId, description, amountCents }: ResultOptions) => layout(`
+export const resultPage = ({ approved, reference, transactionId, description, amountCents, currency }: ResultOptions) => layout(`
 <div class="card center">
   <div class="badge ${approved ? "ok" : "bad"}" aria-hidden="true">${approved ? "✓" : "✕"}</div>
   <h2 style="margin:0">${approved ? "Pago aprobado" : "Pago rechazado"}</h2>
   <p class="muted">${approved ? "Te llevamos de vuelta a FleteYa para calificar el servicio." : "Vuelve a FleteYa para intentar otra vez o pagar en efectivo."}</p>
   <dl>
-    <dt>Valor</dt><dd>${pesos(amountCents)}</dd>
+    <dt>Valor</dt><dd>${amountText(amountCents, currency)}</dd>
     <dt>Medio</dt><dd>${escapeHtml(description)}</dd>
     <dt>Referencia</dt><dd>${escapeHtml(reference)}</dd>
     <dt>Transacción</dt><dd>${escapeHtml(transactionId)}</dd>

@@ -1,5 +1,7 @@
 import prisma from "../database/prismaClient.js";
-import { isHeavyLicense, type CreateDriverCarInfoInput, type UpdateDocumentsInput, type UpdateVehicleInput } from "../validators/driver_car_info.validator.js";
+import type { CreateDriverCarInfoInput, UpdateDocumentsInput, UpdateVehicleInput } from "../validators/driver_car_info.validator.js";
+import { checkLicense, isHeavyLicense } from "../utils/licenseRules.js";
+import { checkPlate, getCountry } from "./countries.service.js";
 import { AppError } from "../utils/App.Error.js";
 import { blockReasonOf, driverBlockReason } from "./driver_eligibility.service.js";
 import { setDriverCanWork } from "../sockets/socketHandler.js";
@@ -45,11 +47,13 @@ export const getByDriver = async (idDriver: number, viewerId: number) => {
 };
 
 const findMyCar = async (idDriver: number) => {
-    const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver } });
-    if (!car) {
+    const found = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, include: { driver: { select: { country_code: true } } } });
+    if (!found) {
         throw new AppError("REGISTER_VEHICLE_FIRST", 404);
     }
-    return car;
+    const { driver, ...car } = found;
+    // La placa y la licencia siguen las reglas del país del conductor
+    return { car, country: await getCountry(driver.country_code) };
 }
 
 // Otro vehículo (tipo o placa distintos) o datos corregidos después de un rechazo: el admin lo vuelve a revisar
@@ -58,8 +62,9 @@ const needsReview = (car: { approval_status: string; vehicle_type: string; plate
 
 // El conductor cambia de vehículo o corrige sus datos. Un camión pide licencia B2 o C2 en adelante
 export const updateMyVehicle = async (idDriver: number, data: UpdateVehicleInput) => {
-    const car = await findMyCar(idDriver);
-    if (data.vehicle_type === "CAMION" && !isHeavyLicense(car.license_category)) {
+    const { car, country } = await findMyCar(idDriver);
+    checkPlate(data.plate, country);
+    if (data.vehicle_type === "CAMION" && !isHeavyLicense(country.code, car.license_category)) {
         throw new AppError("TRUCK_NEEDS_LICENSE_UPDATE", 409);
     }
     const review = needsReview(car, data);
@@ -85,10 +90,8 @@ export const updateMyVehicle = async (idDriver: number, data: UpdateVehicleInput
 
 // Renovó la licencia, el SOAT o la técnico-mecánica. El aviso de vencimiento vuelve a contar desde cero
 export const updateMyDocuments = async (idDriver: number, data: UpdateDocumentsInput) => {
-    const car = await findMyCar(idDriver);
-    if (car.vehicle_type === "CAMION" && !isHeavyLicense(data.license_category)) {
-        throw new AppError("TRUCK_NEEDS_LICENSE", 400);
-    }
+    const { car, country } = await findMyCar(idDriver);
+    checkLicense(country.code, data.license_category, car.vehicle_type);
     const updated = await prisma.driverCarInfo.update({
         where: { id_driver: idDriver },
         data: {

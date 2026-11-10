@@ -5,7 +5,8 @@ import { AppError } from "../utils/App.Error.js";
 import { deny } from "../utils/authorization.js";
 import { canCarry } from "../utils/vehicles.js";
 import { notifyUser } from "../sockets/socketHandler.js";
-import { formatPesos, sendPush } from "../utils/push.js";
+import { pushAmount, sendPush } from "../utils/push.js";
+import { checkFare, getCurrency } from "./countries.service.js";
 import { assertDriverCanWork } from "./driver_eligibility.service.js";
 
 // Ofertar o contraofertar: si el conductor ya tenía una oferta pendiente, la nueva la reemplaza
@@ -13,7 +14,7 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
     await assertDriverCanWork(idDriver);
     const clientRequest = await prisma.clientRequests.findUnique({
         where: { id: data.id_client_request },
-        select: { id_client: true, status: true, expires_at: true, required_vehicle: true, weight_kg: true, length_cm: true, width_cm: true, height_cm: true, packages: true }
+        select: { id_client: true, status: true, expires_at: true, currency: true, required_vehicle: true, weight_kg: true, length_cm: true, width_cm: true, height_cm: true, packages: true }
     });
     if (!clientRequest) {
         throw new AppError("REQUEST_NOT_FOUND", 404);
@@ -24,6 +25,8 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
     if (clientRequest.id_client === idDriver) {
         throw new AppError("CANNOT_OFFER_OWN_TRIP", 400);
     }
+    // La oferta va en la moneda del flete, con sus límites y decimales
+    const fare = checkFare(data.fare_offered, await getCurrency(clientRequest.currency), "offer");
 
     const car = await prisma.driverCarInfo.findUnique({ where: { id_driver: idDriver }, select: { vehicle_type: true, capacity_kg: true, capacity_m3: true } });
     const cargo = {
@@ -50,7 +53,7 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
             data: {
                 id_driver: idDriver,
                 id_client_request: data.id_client_request,
-                fare_offered: data.fare_offered,
+                fare_offered: fare,
                 time: data.time,
                 distance: data.distance
             }
@@ -58,10 +61,10 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
     });
 
     // Con la app abierta la oferta llega por socket; la push es para cuando el cliente salió de la app mientras espera
-    void sendPush(clientRequest.id_client, {
+    void sendPush(clientRequest.id_client, (language) => ({
         type: "NEW_OFFER", id_client_request: data.id_client_request, key: "NEW_OFFER",
-        params: { amount: formatPesos(data.fare_offered), count: Math.round(data.time) },
-    });
+        params: { amount: pushAmount(fare, clientRequest.currency, language), count: Math.round(data.time) },
+    }));
     return offer;
 }
 

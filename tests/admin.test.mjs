@@ -127,6 +127,14 @@ check("Cambia el valor por km", changed.status === 200 && changed.data.km_value 
 const after = await quote();
 check("El precio sugerido usa la tarifa nueva", after > before, `${before} → ${after}`);
 check("Vuelve a la tarifa anterior", (await admin("PUT", "/config", { ...fares, vehicle_rates })).data?.km_value === fares.km_value);
+check("Cambiarla deja a Colombia con tarifas propias", changed.data?.custom === true);
+// Si Colombia usaba las de su moneda antes de la prueba, se le devuelven
+if (!rates.custom) {
+    const reset = await admin("DELETE", "/config?country=CO");
+    check("Vuelve a las tarifas base de los pesos", reset.status === 200 && reset.data.custom === false && reset.data.km_value === fares.km_value);
+}
+const euros = (await admin("GET", "/config?country=AT")).data;
+check("Austria (un país solo con datos) usa las tarifas base del euro", euros?.currency === "EUR" && euros.custom === false && euros.vehicle_rates?.length === 4);
 
 // 8. Viajes atascados y comisiones
 const tripId = (await call("POST", "/client-requests", CLIENT.token, {

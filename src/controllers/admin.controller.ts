@@ -94,7 +94,8 @@ export const getIncident = json((req) => incidents.getIncident(id(req)));
 export const getIncidentPhoto = file((req) => incidents.getIncidentPhotoFile(id(req), id(req, "photoId")));
 export const updateIncident = json((req) => incidents.updateIncidentStatus(getAdminId(req), id(req), req.body.status));
 
-export const getRates = json(() => config.getRates());
+export const getRates = json((req) => config.getRates(typeof req.query.country === "string" ? req.query.country.toUpperCase() : undefined));
 export const updateRates = json((req) => config.updateRates(getAdminId(req), req.body));
+export const resetRates = json((req) => config.resetRates(getAdminId(req), String(req.query.country ?? "").toUpperCase()));
 
 export const listAudit = json((req) => audit.listAdminActions(pageOf(req.query.page)));

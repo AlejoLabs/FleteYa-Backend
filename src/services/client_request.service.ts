@@ -8,10 +8,25 @@ import type { VehicleType } from "../generated/prisma/enums.js";
 import { notifyDrivers, notifyUser } from "../sockets/socketHandler.js";
 import { SEARCH_DURATION_MS, SCHEDULED_CLOSE_BEFORE_MS, findTripOrFail } from "./client_request.shared.js";
 import { alertNearbyDrivers } from "./request_alerts.service.js";
+import { checkFare, checkPhone, getCurrency, publicCountry, ratesFor, requireCountryAt } from "./countries.service.js";
+import { pointSql } from "../utils/geo.js";
+import { roundMoney } from "../utils/money.js";
+import type { Language } from "../i18n/index.js";
+
+// Idioma de los textos de Google ("15 min", "1 h 5 min"). En español, el de Latinoamérica
+const GOOGLE_LANGUAGE: Record<Language, string> = { es: "es-419", en: "en", fr: "fr", it: "it", pt: "pt-BR", de: "de" };
 
 // Crear la solicitud y negociarla mientras busca conductor: subir el precio, "No me interesa" y la ruta sugerida
 
 export const createClientRequest = async (data: CreateClientRequestInput & { id_client: number }) => {
+    // El país (y con él la moneda) sale de dónde se recoge la carga, calculado aquí y no por el teléfono.
+    // En un país sin FleteYa el flete no se crea (COUNTRY_NOT_SUPPORTED)
+    const country = await requireCountryAt(data.pickup_lat, data.pickup_lng);
+    const fare = checkFare(data.fare_offered, country.currency, "fare_offered");
+    checkPhone(data.sender_phone, country, "sender_phone");
+    checkPhone(data.receiver_phone, country, "receiver_phone");
+    const declaredValue = data.declared_value === undefined ? null : roundMoney(data.declared_value, country.currency.decimals);
+
     // Si el cliente eligió un vehículo, se usa el mayor entre ese y el mínimo en el que cabe la carga
     const minimum = requiredVehicleFor(data);
     const requiredVehicle = data.vehicle_type ? biggerVehicle(minimum, data.vehicle_type) : minimum;
@@ -24,6 +39,8 @@ export const createClientRequest = async (data: CreateClientRequestInput & { id_
             await tx.$executeRaw`
             INSERT INTO client_requests (
                 id_client,
+                country_code,
+                currency,
                 fare_offered,
                 pickup_position,
                 destination_position,
@@ -40,9 +57,11 @@ export const createClientRequest = async (data: CreateClientRequestInput & { id_
             )
             VALUES (
                 ${data.id_client},
-                ${data.fare_offered},
-                ST_GeomFromText(CONCAT('POINT(', ${data.pickup_lng}, ' ', ${data.pickup_lat}, ')'), 4326),
-                ST_GeomFromText(CONCAT('POINT(', ${data.destination_lng}, ' ', ${data.destination_lat}, ')'), 4326),
+                ${country.code},
+                ${country.currency.code},
+                ${fare},
+                ${pointSql(data.pickup_lng, data.pickup_lat)},
+                ${pointSql(data.destination_lng, data.destination_lat)},
                 ${data.pickup_description},
                 ${data.destination_description},
                 ${data.cargo_description ?? null},
@@ -82,7 +101,7 @@ export const createClientRequest = async (data: CreateClientRequestInput & { id_
                     scheduled_at: data.scheduled_at ?? null,
                     expires_at: expiresAt,
                     payment_method: data.payment_method,
-                    declared_value: data.declared_value ?? null,
+                    declared_value: declaredValue,
                 }
             });
             return id;
@@ -104,21 +123,23 @@ export const raiseFare = async (userId: number, id: number, data: RaiseFareInput
     if (trip.id_client !== userId) {
         throw deny(userId, "subir-precio", `client_requests/${id}`);
     }
-    if (data.fare_offered <= trip.fare_offered) {
+    // En la moneda del flete, la que quedó al crearlo
+    const fare = checkFare(data.fare_offered, await getCurrency(trip.currency), "new_fare");
+    if (fare <= trip.fare_offered) {
         throw new AppError("FARE_MUST_INCREASE", 400);
     }
 
     const expiresAt = trip.scheduled_at ? trip.expires_at : new Date(Date.now() + SEARCH_DURATION_MS);
     const result = await prisma.clientRequests.updateMany({
         where: { id, status: "CREATED", expires_at: { gt: new Date() } },
-        data: { fare_offered: data.fare_offered, expires_at: expiresAt }
+        data: { fare_offered: fare, expires_at: expiresAt }
     });
     if (result.count === 0) {
         throw new AppError("SEARCH_ALREADY_ENDED", 409);
     }
 
-    notifyDrivers("client_request_updated", { id_client_request: id, fare_offered: data.fare_offered });
-    return { id, fare_offered: data.fare_offered, expires_at: expiresAt };
+    notifyDrivers("client_request_updated", { id_client_request: id, fare_offered: fare });
+    return { id, fare_offered: fare, currency: trip.currency, expires_at: expiresAt };
 }
 
 // "No me interesa": la solicitud deja de aparecerle a ese conductor y se retira su oferta si tenía una
@@ -146,11 +167,15 @@ export const getTimeAndDistance = async (
     destinationLng: number,
     weight: number,
     size: number,
-    vehicle: VehicleType
+    vehicle: VehicleType,
+    language: Language = "es"
 ) => {
 
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     const url = "https://maps.googleapis.com/maps/api/distancematrix/json";
+
+    // El precio se cotiza con las tarifas y en la moneda del país donde se recoge (sin FleteYa ahí, no se cotiza)
+    const country = await requireCountryAt(originLat, originLng);
 
     let response;
 
@@ -160,8 +185,8 @@ export const getTimeAndDistance = async (
                 origins: `${originLat},${originLng}`,
                 destinations: `${destinationLat},${destinationLng}`,
                 unit: "metric",
-                // Textos en español ("15 min" y no "15 mins"); la app pone la coma decimal a los km
-                language: "es-419",
+                // Textos en el idioma de la persona ("15 min" y no "15 mins" en español); la app formatea los km
+                language: GOOGLE_LANGUAGE[language],
                 key: apiKey
             }
         });
@@ -187,17 +212,17 @@ export const getTimeAndDistance = async (
     const km = distanceValue / 1000; // convertir a kilómetros
     const min = durationValue / 60; // convertir a minutos
 
-    const [values, rate] = await Promise.all([
-        prisma.timeAndDistanceValues.findUnique({ where: { id: 1 } }),
-        prisma.vehicleRate.findUnique({ where: { vehicle_type: vehicle } }),
-    ]);
+    // Las del país si el admin las cambió; si no, las de su moneda
+    const values = await ratesFor(country);
+    const rate = values.vehicle_rates.find((item) => item.vehicle_type === vehicle);
 
-    if (!values || !rate) {
+    if (!rate) {
         throw new AppError("RATES_NOT_CONFIGURED", 500);
     }
 
     // Un vehículo más grande tiene una base mayor y cobra más por kilómetro y por minuto.
-    // Cubre solo el transporte: la ayuda para cargar y descargar se negocia en la oferta
+    // Cubre solo el transporte: la ayuda para cargar y descargar se negocia en la oferta.
+    // Va sin redondear, como antes: la app lo redondea al paso del precio de la moneda (en pesos, de a $1.000)
     const recommendedValue =
         rate.base_fare
         + ((values.km_value * km) + (values.min_value * min)) * rate.km_factor
@@ -217,7 +242,9 @@ export const getTimeAndDistance = async (
         destination_address: body.destination_addresses?.[0] || "",
         vehicle_type: vehicle,
         recommended_value: recommendedValue,
-        commission_rate: values.commission_rate
+        commission_rate: values.commission_rate,
+        // País de la recogida y su moneda: con esto la app arma los botones del precio (paso, límites, decimales)
+        country: publicCountry(country),
     }
 
 }

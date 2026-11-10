@@ -16,19 +16,19 @@ export type CreateDriverCarInfoInput = z.infer<typeof createDriverCarInfoSchema>
 const validUntil = (document: string) => z.coerce.date({message: vm("DOC_DATE_INVALID", { document: `@fields.${document}` })})
     .refine((val) => val.getTime() > Date.now(), {message: vm("DOC_EXPIRED", { document: `@fields.${document}` })});
 
-// Categorías de licencia en Colombia (B particular, C servicio público). B1/C1 cubren camionetas y furgones livianos
-// (tipo NHR); el camión sencillo pide B2/C2 o superior
-const LICENSE_CATEGORIES = ["B1", "B2", "B3", "C1", "C2", "C3"] as const;
-const HEAVY_CATEGORIES = ["B2", "B3", "C2", "C3"];
+// La categoría de la licencia depende del país: aquí solo su forma (1 a 3 letras o números). Las categorías válidas
+// en Colombia y la que pide un camión se revisan en el servicio con el país del conductor (utils/licenseRules)
+const licenseCategory = z.string().trim().toUpperCase()
+    .refine((val) => /^[A-Z0-9]{1,3}$/.test(val), {message: "LICENSE_CATEGORY_INVALID"});
 
 // Datos del vehículo que se piden al registrarse y se pueden cambiar después (por ejemplo, al cambiar de furgón)
 const vehicleFields = {
     vehicle_type: z.enum(["CARRY", "ESTACAS", "FURGON", "CAMION"], {message: "CHOOSE_VEHICLE_TYPE"}),
     brand: z.string().trim().min(2, {message: "BRAND_REQUIRED"}).max(50),
     color: z.string().trim().min(2, {message: "COLOR_REQUIRED"}).max(50),
-    // Placa de vehículo particular o de carga: 3 letras y 3 números, sin espacios ni guiones
+    // Placa sin espacios ni guiones. El formato de cada país (en Colombia 3 letras y 3 números) se revisa en el servicio
     plate: z.string().transform((val) => val.toUpperCase().replace(/[\s-]/g, ""))
-        .refine((val) => /^[A-Z]{3}\d{3}$/.test(val), {message: "PLATE_FORMAT"}),
+        .refine((val) => /^[A-Z0-9]{2,10}$/.test(val), {message: "PLATE_INVALID"}),
     model_year: z.coerce.number().int().refine((val) => val >= 1980 && val <= new Date().getFullYear() + 1, {message: "MODEL_YEAR_INVALID"}),
     is_covered: z.boolean().default(false),
 };
@@ -36,15 +36,13 @@ const vehicleFields = {
 export const driverVehicleSchema = z.object({
     ...vehicleFields,
     license_number: z.string().trim().min(5, {message: "LICENSE_NUMBER_REQUIRED"}).max(30),
-    license_category: z.enum(LICENSE_CATEGORIES, {message: "LICENSE_CATEGORY_INVALID"}),
+    license_category: licenseCategory,
     license_expires_at: validUntil("license"),
+    // SOAT en Colombia; en los demás países, el seguro obligatorio del vehículo
     soat_expires_at: validUntil("soat"),
     // Los vehículos nuevos no la tienen los primeros años, por eso es opcional
     techno_expires_at: validUntil("techno").optional(),
     property_card_number: z.string().trim().min(5, {message: "PROPERTY_CARD_REQUIRED"}).max(30),
-}).refine((data) => data.vehicle_type !== "CAMION" || HEAVY_CATEGORIES.includes(data.license_category), {
-    message: "TRUCK_NEEDS_LICENSE",
-    path: ["license_category"],
 });
 
 export type DriverVehicleInput = z.infer<typeof driverVehicleSchema>;
@@ -66,12 +64,10 @@ export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;
 
 // Renovar los documentos: nuevas fechas de vencimiento y, si cambió, la categoría de la licencia
 export const updateDocumentsSchema = z.object({
-    license_category: z.enum(LICENSE_CATEGORIES, {message: "LICENSE_CATEGORY_INVALID"}),
+    license_category: licenseCategory,
     license_expires_at: validUntil("license"),
     soat_expires_at: validUntil("soat"),
     techno_expires_at: validUntil("techno").nullable().optional(),
 });
 
 export type UpdateDocumentsInput = z.infer<typeof updateDocumentsSchema>;
-
-export const isHeavyLicense = (category: string | null | undefined) => HEAVY_CATEGORIES.includes(category ?? "");

@@ -34,7 +34,7 @@ export const listTrips = async (filters: { status?: ClientRequestStatus | undefi
         prisma.clientRequests.findMany({
             where, orderBy: { id: "desc" }, skip: (filters.page - 1) * PAGE_SIZE, take: PAGE_SIZE,
             select: {
-                id: true, status: true, fare_offered: true, fare_assigned: true, payment_method: true, paid_at: true,
+                id: true, status: true, fare_offered: true, fare_assigned: true, currency: true, country_code: true, payment_method: true, paid_at: true,
                 required_vehicle: true, cargo_category: true, scheduled_at: true, created_at: true, update_at: true,
                 pickup_description: true, destination_description: true,
                 client: person, driver: person,
@@ -55,7 +55,7 @@ export const getTripDetail = async (id: number) => {
     const trip = await prisma.clientRequests.findUnique({
         where: { id },
         select: {
-            id: true, status: true, fare_offered: true, fare_assigned: true, commission: true, commission_rate: true,
+            id: true, status: true, fare_offered: true, fare_assigned: true, currency: true, country_code: true, commission: true, commission_rate: true,
             payment_method: true, paid_at: true, commission_settled_at: true, declared_value: true,
             pickup_description: true, destination_description: true, cargo_description: true, cargo_category: true,
             required_vehicle: true, weight_kg: true, packages: true, helpers: true, scheduled_at: true,
@@ -63,7 +63,7 @@ export const getTripDetail = async (id: number) => {
             delivery_code_attempts: true, created_at: true, update_at: true,
             client: person, driver: person,
             driverTripOffers: { orderBy: { id: "asc" }, select: { id: true, id_driver: true, fare_offered: true, status: true, created_at: true, driver: { select: { name: true, lastname: true } } } },
-            payments: { orderBy: { id: "asc" }, select: { id: true, reference: true, method: true, amount: true, status: true, wompi_method: true, created_at: true } },
+            payments: { orderBy: { id: "asc" }, select: { id: true, reference: true, method: true, amount: true, currency: true, status: true, wompi_method: true, created_at: true } },
             incidents: { select: { id: true, kind: true, status: true, created_at: true } },
             _count: { select: { messages: true, photos: true } },
         },

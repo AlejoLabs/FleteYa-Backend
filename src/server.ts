@@ -9,6 +9,7 @@ import driverTripOfferRouter from "./routes/driver_trip_offer.routes.js";
 import driverCarInfoRouter from "./routes/driver_car_info.routes.js";
 import paymentSimulatorRouter, { paymentReturnRouter } from "./routes/payment_simulator.routes.js";
 import adminRouter from "./routes/admin.routes.js";
+import countriesRouter from "./routes/countries.routes.js";
 import { errorHandler } from './middlewares/errorHandler.js';
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -32,6 +33,7 @@ app.use("/drivers-position", driverPositionRouter);
 app.use("/client-requests", clientRequestRouter);
 app.use("/driver-trip-offers", driverTripOfferRouter);
 app.use("/driver-car-info", driverCarInfoRouter);
+app.use("/countries", countriesRouter);
 app.use("/payments/simulator", paymentSimulatorRouter);
 app.use("/payments/return", paymentReturnRouter);
 app.get("/", (req, res)=>{

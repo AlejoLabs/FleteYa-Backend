@@ -173,7 +173,13 @@
     "RATING_RANGE": "{{field}} deve essere compreso tra 1 e 5",
     "DOC_DATE_INVALID": "La data di scadenza di {{document}} non è valida",
     "DOC_EXPIRED": "{{document}} è scaduto",
-    "NETWORK_ERROR": "Non siamo riusciti a connetterci a FleteYa. Controlla la connessione e riprova."
+    "NETWORK_ERROR": "Non siamo riusciti a connetterci a FleteYa. Controlla la connessione e riprova.",
+    "FARE_INVALID": "{{field}} non è un importo valido",
+    "PHONE_DIGITS": "{{field}} deve contenere solo numeri",
+    "PHONE_FORMAT": "{{field}} non è un numero di cellulare valido. Esempio: {{example}}",
+    "PLATE_INVALID": "La targa deve avere da 2 a 10 lettere o numeri",
+    "COUNTRY_INVALID": "Il paese non è valido",
+    "COUNTRY_NOT_SUPPORTED": "FleteYa non è ancora disponibile nel tuo paese. Per ora operiamo in: {{countries}}"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "Se l'e-mail è registrata, ti abbiamo inviato un codice per reimpostare la password",
@@ -198,7 +204,8 @@
     "driver_rating": "La valutazione dell'autista",
     "license": "La patente",
     "soat": "Il SOAT",
-    "techno": "La revisione tecnica"
+    "techno": "La revisione tecnica",
+    "offer": "L'offerta"
   },
   "docs": {
     "LICENSE": "Patente di guida",

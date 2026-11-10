@@ -1,4 +1,5 @@
 import axios from "axios";
+import { pointSql } from "../utils/geo.js";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
 import { canCarry, vehicleRank } from "../utils/vehicles.js";
@@ -23,7 +24,7 @@ export const getMyActiveTrips = async (userId: number) => {
         },
         select: {
             id: true, id_client: true, id_driver_assigned: true, status: true,
-            fare_offered: true, fare_assigned: true, payment_method: true, paid_at: true,
+            fare_offered: true, fare_assigned: true, currency: true, country_code: true, payment_method: true, paid_at: true,
             pickup_description: true, destination_description: true,
             cargo_category: true, cargo_description: true, required_vehicle: true,
             scheduled_at: true, expires_at: true, created_at: true
@@ -64,6 +65,8 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
                 CR.id,
                 CR.id_client,
                 CR.fare_offered,
+                CR.currency,
+                CR.country_code,
                 CR.payment_method,
                 CR.pickup_description,
                 CR.destination_description,
@@ -98,16 +101,16 @@ export const getNearbyClientRequests = async (idDriver: number, driverLat: numbe
                     WHERE TP.id_client_request = CR.id AND TP.kind = 'CARGO'
                 ) AS cargo_photos,
                 JSON_OBJECT (
-                    "x", ST_X(pickup_position),
-                    "y", ST_Y(pickup_position)
+                    "x", ST_Longitude(pickup_position),
+                    "y", ST_Latitude(pickup_position)
 
                 ) AS pickup_position,
                 JSON_OBJECT (
-                    "x", ST_X(destination_position),
-                    "y", ST_Y(destination_position)
+                    "x", ST_Longitude(destination_position),
+                    "y", ST_Latitude(destination_position)
 
                 ) AS destination_position,
-                ST_Distance_Sphere(pickup_position, ST_GeomFromText(CONCAT('POINT(', ${driverLng}, ' ', ${driverLat}, ')'), 4326)) as distance,
+                ST_Distance_Sphere(pickup_position, ${pointSql(driverLng, driverLat)}) as distance,
                 timestampdiff(MINUTE, CR.update_at, UTC_TIMESTAMP()) AS time_difference,
                 JSON_OBJECT(
                     "name", U.name,
@@ -198,6 +201,8 @@ export const getByClientRequest = async (id: number, viewerId: number) => {
                 CR.id_client,
                 CR.id_driver_assigned,
                 CR.fare_offered,
+                CR.currency,
+                CR.country_code,
                 CR.fare_assigned,
                 CR.payment_method,
                 CR.commission,
@@ -232,13 +237,13 @@ export const getByClientRequest = async (id: number, viewerId: number) => {
                 CR.canceled_by,
                 CR.cancel_reason,
                 JSON_OBJECT (
-                    "x", ST_X(pickup_position),
-                    "y", ST_Y(pickup_position)
+                    "x", ST_Longitude(pickup_position),
+                    "y", ST_Latitude(pickup_position)
                 
                 ) AS pickup_position,
                 JSON_OBJECT (
-                    "x", ST_X(destination_position),
-                    "y", ST_Y(destination_position)
+                    "x", ST_Longitude(destination_position),
+                    "y", ST_Latitude(destination_position)
                 
                 ) AS destination_position,
                 JSON_OBJECT(
@@ -311,6 +316,8 @@ export const getByClientAssigned = async (id_client: number) => {
             CR.id_client,
             CR.id_driver_assigned,
             CR.fare_offered,
+            CR.currency,
+            CR.country_code,
             CR.fare_assigned,
             CR.payment_method,
             CR.commission,
@@ -322,12 +329,12 @@ export const getByClientAssigned = async (id_client: number) => {
             CR.client_rating,
             CR.driver_rating,
             JSON_OBJECT(
-                'x', ST_X(pickup_position),
-                'y', ST_Y(pickup_position)
+                'x', ST_Longitude(pickup_position),
+                'y', ST_Latitude(pickup_position)
             ) AS pickup_position,
             JSON_OBJECT(
-                'x', ST_X(destination_position),
-                'y', ST_Y(destination_position)
+                'x', ST_Longitude(destination_position),
+                'y', ST_Latitude(destination_position)
             ) AS destination_position,
             JSON_OBJECT(
                 'name', U.name,
@@ -388,6 +395,8 @@ export const getByDriverAssigned = async (id_driver_assigned: number) => {
             CR.id_client,
             CR.id_driver_assigned,
             CR.fare_offered,
+            CR.currency,
+            CR.country_code,
             CR.fare_assigned,
             CR.payment_method,
             CR.commission,
@@ -399,12 +408,12 @@ export const getByDriverAssigned = async (id_driver_assigned: number) => {
             CR.client_rating,
             CR.driver_rating,
             JSON_OBJECT(
-                'x', ST_X(pickup_position),
-                'y', ST_Y(pickup_position)
+                'x', ST_Longitude(pickup_position),
+                'y', ST_Latitude(pickup_position)
             ) AS pickup_position,
             JSON_OBJECT(
-                'x', ST_X(destination_position),
-                'y', ST_Y(destination_position)
+                'x', ST_Longitude(destination_position),
+                'y', ST_Latitude(destination_position)
             ) AS destination_position,
             JSON_OBJECT(
                 'name', U.name,

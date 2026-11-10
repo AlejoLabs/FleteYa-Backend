@@ -173,7 +173,13 @@
     "RATING_RANGE": "{{field}} muss zwischen 1 und 5 liegen",
     "DOC_DATE_INVALID": "Das Ablaufdatum von {{document}} ist ungültig",
     "DOC_EXPIRED": "{{document}} ist abgelaufen",
-    "NETWORK_ERROR": "Wir konnten keine Verbindung zu FleteYa herstellen. Prüfe dein Internet und versuche es erneut."
+    "NETWORK_ERROR": "Wir konnten keine Verbindung zu FleteYa herstellen. Prüfe dein Internet und versuche es erneut.",
+    "FARE_INVALID": "{{field}} ist kein gültiger Betrag",
+    "PHONE_DIGITS": "{{field}} darf nur Ziffern enthalten",
+    "PHONE_FORMAT": "{{field}} ist keine gültige Handynummer. Beispiel: {{example}}",
+    "PLATE_INVALID": "Das Kennzeichen muss 2 bis 10 Buchstaben oder Ziffern haben",
+    "COUNTRY_INVALID": "Das Land ist nicht gültig",
+    "COUNTRY_NOT_SUPPORTED": "FleteYa ist in deinem Land noch nicht verfügbar. Derzeit sind wir hier tätig: {{countries}}"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "Wenn die E-Mail registriert ist, haben wir dir einen Code zum Zurücksetzen des Passworts geschickt",
@@ -198,7 +204,8 @@
     "driver_rating": "Die Bewertung des Fahrers",
     "license": "Der Führerschein",
     "soat": "Das SOAT",
-    "techno": "Die technische Prüfung"
+    "techno": "Die technische Prüfung",
+    "offer": "Das Angebot"
   },
   "docs": {
     "LICENSE": "Führerschein",

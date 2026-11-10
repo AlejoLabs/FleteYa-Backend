@@ -11,6 +11,8 @@ import { normalizeLanguage, okMessage } from "../i18n/index.js";
 import { resetCodeMail } from "../utils/mailTemplates.js";
 import { suspendedError, type RoleId } from "../utils/authorization.js";
 import { assertLoginAllowed, clearLoginFailures, registerLoginFailure } from "../utils/loginThrottle.js";
+import { checkLicense } from "../utils/licenseRules.js";
+import { DEFAULT_COUNTRY, checkPlate, getCountry } from "./countries.service.js";
 
 const GOOGLE_ACCOUNT_MESSAGE = "GOOGLE_ACCOUNT_NO_PASSWORD";
 
@@ -55,7 +57,7 @@ const assertEmailAvailable = async (email: string) => {
     throw new AppError("EMAIL_ALREADY_REGISTERED", 409);
 }
 
-const createUserWithRole = async (tx: any, data: createUserInput, role: RoleId) => {
+const createUserWithRole = async (tx: any, data: createUserInput, role: RoleId, countryCode: string) => {
     const user = await tx.user.create({
         data: {
             name: data.name,
@@ -65,6 +67,7 @@ const createUserWithRole = async (tx: any, data: createUserInput, role: RoleId) 
             password: await bcrypt.hash(data.password, 10),
             // El idioma del teléfono al registrarse; después se cambia desde el perfil
             language: normalizeLanguage(data.language),
+            country_code: countryCode,
         }
     });
     await tx.userHasRole.create({ data: { id_user: user.id, id_rol: role } });
@@ -73,7 +76,8 @@ const createUserWithRole = async (tx: any, data: createUserInput, role: RoleId) 
 
 export const register = async (data: createUserInput) => {
     await assertEmailAvailable(data.email);
-    const user = await prisma.$transaction((tx) => createUserWithRole(tx, data, "CLIENT"));
+    const country = await getCountry(data.country_code ?? DEFAULT_COUNTRY);
+    const user = await prisma.$transaction((tx) => createUserWithRole(tx, data, "CLIENT", country.code));
     return buildAuthResponse(user.id);
 }
 
@@ -81,13 +85,17 @@ export const register = async (data: createUserInput) => {
 // Queda en revisión (approval_status PENDING) hasta que el admin verifique el vehículo y los documentos
 export const registerDriver = async (data: RegisterDriverInput) => {
     await assertEmailAvailable(data.email);
+    // La placa y la licencia siguen las reglas del país del conductor (en Colombia, ABC123 y categorías B/C)
+    const country = await getCountry(data.country_code ?? DEFAULT_COUNTRY);
+    checkPlate(data.vehicle.plate, country);
+    checkLicense(country.code, data.vehicle.license_category, data.vehicle.vehicle_type);
     const plateTaken = await prisma.driverCarInfo.findFirst({ where: { plate: data.vehicle.plate }, select: { id_driver: true } });
     if (plateTaken) {
         throw new AppError("PLATE_ALREADY_REGISTERED", 409);
     }
 
     const user = await prisma.$transaction(async (tx) => {
-        const user = await createUserWithRole(tx, data, "DRIVER");
+        const user = await createUserWithRole(tx, data, "DRIVER", country.code);
         const v = data.vehicle;
         await tx.driverCarInfo.create({
             data: {

@@ -3,7 +3,8 @@ import path from "path";
 import { cert, initializeApp, type App } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import prisma from "../database/prismaClient.js";
-import { normalizeLanguage, t, type Language, type Params } from "../i18n/index.js";
+import { LOCALE_TAGS, normalizeLanguage, t, type Language, type Params } from "../i18n/index.js";
+import { formatMoney } from "./money.js";
 
 // Notificaciones push con Firebase Cloud Messaging. Complementan a los sockets: llegan aunque la app esté cerrada.
 // La llave privada va en un archivo fuera de git (FIREBASE_SERVICE_ACCOUNT_PATH); sin ella, en desarrollo solo se registran en consola
@@ -85,4 +86,6 @@ export const sendPush = async (userId: number, content: PushContent) => {
     }
 }
 
-export const formatPesos = (value: number) => `$${Math.round(value).toLocaleString("es-CO")}`;
+// Un monto de un aviso, en la moneda del viaje y con el formato del idioma de quien lo recibe ("$ 25.000", "25 €")
+export const pushAmount = (value: number, currency: string, language: Language) =>
+    formatMoney(value, currency, LOCALE_TAGS[language]);

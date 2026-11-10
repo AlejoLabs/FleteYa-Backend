@@ -26,12 +26,13 @@ router.get("/:reference", (req: Request, res: Response) => {
             transactionId: payment.transaction.id,
             description: payment.description ?? "",
             amountCents: payment.amount_in_cents,
+            currency: payment.currency,
         }));
     }
     if (payment.processing) {
         return res.send(processingPage(payment.processing.method as "CARD" | "NEQUI" | "PSE"));
     }
-    return res.send(checkoutPage({ reference, amountCents: payment.amount_in_cents }));
+    return res.send(checkoutPage({ reference, amountCents: payment.amount_in_cents, currency: payment.currency }));
 });
 
 router.post("/:reference", (req: Request, res: Response) => {
@@ -46,7 +47,7 @@ router.post("/:reference", (req: Request, res: Response) => {
     // El número de la tarjeta o del celular solo se usa para validar aquí: no se guarda ni se registra
     const result = evaluateSimulatorForm(req.body);
     if (!result.ok) {
-        return res.status(400).send(checkoutPage({ reference, amountCents: payment.amount_in_cents, active: result.method, error: result.error }));
+        return res.status(400).send(checkoutPage({ reference, amountCents: payment.amount_in_cents, currency: payment.currency, active: result.method, error: result.error }));
     }
     startSimulatedPayment(reference, result.status, result.method, result.description);
     // Patrón post-redirect-get: recargar la página no reenvía el formulario

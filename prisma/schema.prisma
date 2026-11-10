@@ -29,6 +29,10 @@ model User {
   notification_token String? @db.VarChar(255)
   // Idioma de la app de esta persona (es, en, fr, it, pt, de): en él se escriben sus notificaciones y correos
   language String @default("es") @db.VarChar(5)
+  // País de la persona: lo elige con el indicativo del celular. Decide las reglas de su placa y documentos,
+  // y la moneda en la que ve el precio de referencia de un flete de otro país
+  country_code String @default("CO") @db.Char(2)
+  country Country @relation(fields: [country_code], references: [code], onDelete: Restrict, onUpdate: Cascade)
   created_at DateTime @default(now())
   update_at DateTime @updatedAt
 
@@ -54,6 +58,7 @@ model User {
   // Datos personales borrados a pedido del usuario (Ley 1581): los viajes se conservan sin nombre, correo ni celular
   anonymized_at DateTime?
 
+  @@index([country_code])
   @@map("users")
 
 }
@@ -92,6 +97,7 @@ model DriverPosition {
   @@map("drivers_position")
 }
 
+// Sin uso desde la Fase 9b (las tarifas van por país en country_rates). Se conserva por si hay que volver atrás
 model TimeAndDistanceValues {
   id          Int   @id
   km_value    Float
@@ -104,13 +110,115 @@ model TimeAndDistanceValues {
   @@map("time_and_distance_values")
 }
 
-// Tarifa de cada tipo de vehículo para el precio sugerido: un valor base más un factor sobre distancia y tiempo
+// Sin uso desde la Fase 9b (ahora en country_vehicle_rates). Se conserva por si hay que volver atrás
 model VehicleRate {
   vehicle_type VehicleType @id
   base_fare    Float
   km_factor    Float
 
   @@map("vehicle_rates")
+}
+
+// Monedas: cuántos decimales usan y, para el precio de un flete, el paso de los botones + y − y los límites
+model Currency {
+  code      String @id @db.Char(3)
+  decimals  Int    @db.TinyInt
+  fare_step Float
+  min_fare  Float
+  max_fare  Float
+
+  countries Country[]
+  clientRequests ClientRequests[]
+  payments Payment[]
+  rates CurrencyRate?
+  vehicleRates CurrencyVehicleRate[]
+
+  @@map("currencies")
+}
+
+// Tarifas base del precio sugerido en cada moneda: las usan todos los países de esa moneda que no tengan las suyas
+model CurrencyRate {
+  currency_code   String @id @db.Char(3)
+  km_value        Float
+  min_value       Float
+  weight_rate     Float
+  size_rate       Float
+  // Parte del valor acordado que se queda FleteYa (0.1 = 10 %). Cada viaje guarda la suya al asignarse
+  commission_rate Float  @default(0.1)
+
+  currency Currency @relation(fields: [currency_code], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("currency_rates")
+}
+
+// Tarifa base y factor de cada tipo de vehículo en cada moneda
+model CurrencyVehicleRate {
+  currency_code String      @db.Char(3)
+  vehicle_type  VehicleType
+  base_fare     Float
+  km_factor     Float
+
+  currency Currency @relation(fields: [currency_code], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([currency_code, vehicle_type])
+  @@map("currency_vehicle_rates")
+}
+
+// Países donde opera FleteYa. Agregar un país es agregar una fila con su área: usa las tarifas de su moneda.
+// Un punto que no cae en ningún área es de un país sin FleteYa: ahí no se pueden pedir fletes
+model Country {
+  code          String  @id @db.Char(2)
+  // Nombre en cada idioma de la app: {"es": "Alemania", "de": "Deutschland", ...}
+  names         Json
+  currency_code String  @db.Char(3)
+  // Idioma con el que arranca alguien de ese país
+  default_language String @db.VarChar(5)
+  // No es único: Estados Unidos y Puerto Rico comparten el +1
+  phone_prefix  String  @db.VarChar(5)
+  // Celular sin indicativo, como expresión regular
+  phone_pattern String  @db.VarChar(60)
+  phone_example String  @db.VarChar(15)
+  // null = placa libre (2 a 10 letras o números)
+  plate_pattern String? @db.VarChar(60)
+  // Territorio (MULTIPOLYGON en SRID 4326, ejes longitud-latitud): el backend busca aquí el país de la recogida
+  area          Unsupported("multipolygon")
+
+  currency Currency @relation(fields: [currency_code], references: [code], onDelete: Restrict, onUpdate: Cascade)
+  rates CountryRate?
+  vehicleRates CountryVehicleRate[]
+  users User[]
+  clientRequests ClientRequests[]
+
+  @@index([currency_code])
+  @@map("countries")
+}
+
+// Tarifas propias de un país, solo si el admin las cambió en el panel; sin fila, el país usa las de su moneda
+model CountryRate {
+  country_code    String @id @db.Char(2)
+  km_value        Float
+  min_value       Float
+  weight_rate     Float
+  size_rate       Float
+  // Parte del valor acordado que se queda FleteYa (0.1 = 10 %). Cada viaje guarda la suya al asignarse
+  commission_rate Float  @default(0.1)
+
+  country Country @relation(fields: [country_code], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("country_rates")
+}
+
+// Tarifa propia de cada tipo de vehículo en un país (igual que CountryRate: solo si el admin la cambió)
+model CountryVehicleRate {
+  country_code String      @db.Char(2)
+  vehicle_type VehicleType
+  base_fare    Float
+  km_factor    Float
+
+  country Country @relation(fields: [country_code], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([country_code, vehicle_type])
+  @@map("country_vehicle_rates")
 }
 
 model ClientRequests {
@@ -121,6 +229,13 @@ model ClientRequests {
 
   client User @relation("client", fields: [id_client], references: [id])
   driver User? @relation("driver", fields: [id_driver_assigned], references: [id])
+
+  // País donde se recoge (lo detecta el backend con las coordenadas) y su moneda: se fijan al crear el flete.
+  // Todos los montos del viaje (ofertas, valor acordado, comisión, pagos) van en esta moneda
+  country_code String @db.Char(2)
+  currency String @db.Char(3)
+  country Country @relation(fields: [country_code], references: [code], onDelete: Restrict, onUpdate: Cascade)
+  currencyInfo Currency @relation(fields: [currency], references: [code], onDelete: Restrict, onUpdate: Cascade)
 
   fare_offered Float
   fare_assigned Float?
@@ -200,6 +315,8 @@ model ClientRequests {
   payments Payment[]
 
   @@index([status, expires_at])
+  @@index([country_code])
+  @@index([currency])
   @@map("client_requests")
 }
 
@@ -251,7 +368,9 @@ model Payment {
   // Referencia única que viaja a Wompi y vuelve en la transacción
   reference String @unique @db.VarChar(64)
   method PaymentMethod
-  amount Int
+  // En la moneda del viaje, redondeado a sus decimales
+  amount Float
+  currency String @db.Char(3)
   status PaymentStatus @default(PENDING)
   wompi_transaction_id String? @db.VarChar(64)
   // NEQUI, CARD, PSE, BANCOLOMBIA_TRANSFER... según lo que eligió el cliente en el checkout
@@ -260,8 +379,10 @@ model Payment {
   update_at DateTime @updatedAt
 
   clientRequest ClientRequests @relation(fields: [id_client_request], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  currencyInfo Currency @relation(fields: [currency], references: [code], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([id_client_request, created_at])
+  @@index([currency])
   @@map("payments")
 }
 

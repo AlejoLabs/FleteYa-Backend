@@ -7,18 +7,21 @@ import type { WompiStatus, WompiTransaction } from "./wompi.js";
 // no cambian al pasar del simulador a Wompi: solo se ponen las llaves.
 // Activar el comercio en Wompi pide RUT y cuenta bancaria; para la demo basta el simulador
 
-export const CURRENCY = wompi.CURRENCY;
-
 const simulatorEnabled = () => !wompi.isWompiConfigured() && process.env.PAYMENTS_SIMULATOR === "true";
 
-export const gatewayName = () => wompi.isWompiConfigured() ? "WOMPI" : simulatorEnabled() ? "SIMULATOR" : null;
+// Wompi solo cobra en pesos colombianos; el simulador acepta la moneda de cualquier país.
+// Sin pasarela para esa moneda, la app solo ofrece efectivo
+export const gatewayName = (currency: string) => wompi.isWompiConfigured()
+    ? (currency === wompi.CURRENCY ? "WOMPI" : null)
+    : simulatorEnabled() ? "SIMULATOR" : null;
 
-export const isGatewayAvailable = () => gatewayName() !== null;
+export const isGatewayAvailable = (currency: string) => gatewayName(currency) !== null;
 
 // Intentos del simulador por referencia. Viven en memoria: si el backend se reinicia, el intento queda pendiente
 // y el cliente vuelve a pagar con una referencia nueva
 interface SimulatedPayment {
     amount_in_cents: number;
+    currency: string;
     // Desde que el cliente envía el formulario hasta resolve_at el pago está "procesando", como en una pasarela real
     processing?: { status: WompiStatus; method: string; description: string; resolve_at: number };
     // "Visa •••• 4242", "Nequi •••• 1111": para el comprobante, nunca el número completo
@@ -39,16 +42,17 @@ const settle = (reference: string, payment: SimulatedPayment) => {
         status: payment.processing.status,
         reference,
         amount_in_cents: payment.amount_in_cents,
-        currency: CURRENCY,
+        currency: payment.currency,
         payment_method_type: payment.processing.method,
     };
 }
 
-export const checkoutUrl = (reference: string, amountInCents: number) => {
+// amountInCents: el monto en la unidad más pequeña de la moneda (centavos), como lo pide Wompi
+export const checkoutUrl = (reference: string, amountInCents: number, currency: string) => {
     if (wompi.isWompiConfigured()) {
         return wompi.checkoutUrl(reference, amountInCents);
     }
-    simulated.set(reference, { amount_in_cents: amountInCents, created_at: new Date() });
+    simulated.set(reference, { amount_in_cents: amountInCents, currency, created_at: new Date() });
     return `http://${process.env.HOST}:${process.env.PORT}/payments/simulator/${encodeURIComponent(reference)}`;
 }
 

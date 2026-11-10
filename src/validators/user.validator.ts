@@ -1,6 +1,10 @@
 import {z} from "zod";
 import { LANGUAGES } from "../i18n/languages.js";
 import type { TypeOf } from "zod/v3";
+
+// País de la persona (CO, MX, ES...), elegido con el indicativo del celular. Que exista se revisa en el servicio
+const countryCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/, {message: "COUNTRY_INVALID"});
+
 export const createUserSchema = z.object({
     name: z.string().min(2, {message: "NAME_REQUIRED"}),
     lastname: z.string().min(2, {message: "LASTNAME_REQUIRED"}),
@@ -10,12 +14,16 @@ export const createUserSchema = z.object({
     password: z.string().min(6, {message: "MIN_6_CHARS"}),
     // Idioma del teléfono al crear la cuenta; si no llega o no es uno de los nuestros, queda español
     language: z.string().max(10).optional(),
+    // Las versiones de la app de antes de la Fase 9b no lo mandan: quedan en Colombia
+    country_code: countryCodeSchema.optional(),
 });
 
 export const updateUserSchema = z.object({
     name: z.string().min(2, {message: "NAME_MIN_2"}).optional(),
     lastname: z.string().min(2, {message: "LASTNAME_MIN_2"}).optional(),
     phone: z.string().min(6, {message: "MIN_6_CHARS"}).optional(),
+    // Cambia junto con el indicativo del celular
+    country_code: countryCodeSchema.optional(),
 
 });
 

@@ -50,6 +50,7 @@ router.put("/incidents/:id", validateBody(incidentStatusSchema), admin.updateInc
 
 router.get("/config", admin.getRates);
 router.put("/config", validateBody(updateRatesSchema), admin.updateRates);
+router.delete("/config", admin.resetRates);
 
 router.get("/audit", admin.listAudit);
 

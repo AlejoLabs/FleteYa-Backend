@@ -173,7 +173,13 @@
     "RATING_RANGE": "{{field}} debe estar entre 1 y 5",
     "DOC_DATE_INVALID": "La fecha de vencimiento de {{document}} no es válida",
     "DOC_EXPIRED": "{{document}} está vencido",
-    "NETWORK_ERROR": "No pudimos conectarnos con FleteYa. Revisa tu internet e intenta de nuevo."
+    "NETWORK_ERROR": "No pudimos conectarnos con FleteYa. Revisa tu internet e intenta de nuevo.",
+    "FARE_INVALID": "{{field}} no es un valor válido",
+    "PHONE_DIGITS": "{{field}} debe tener solo números",
+    "PHONE_FORMAT": "{{field}} no es un celular válido. Ejemplo: {{example}}",
+    "PLATE_INVALID": "La placa debe tener de 2 a 10 letras o números",
+    "COUNTRY_INVALID": "El país no es válido",
+    "COUNTRY_NOT_SUPPORTED": "FleteYa todavía no está disponible en tu país. Por ahora operamos en: {{countries}}"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "Si el correo está registrado, te enviamos un código para restablecer la contraseña",
@@ -198,7 +204,8 @@
     "driver_rating": "La calificación del conductor",
     "license": "La licencia",
     "soat": "El SOAT",
-    "techno": "La revisión técnico-mecánica"
+    "techno": "La revisión técnico-mecánica",
+    "offer": "La oferta"
   },
   "docs": {
     "LICENSE": "Licencia de conducción",

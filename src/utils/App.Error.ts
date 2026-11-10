@@ -1,4 +1,5 @@
 import { hasKey, t, type Params } from "../i18n/index.js";
+import { resolveParams } from "../i18n/validation.js";
 
 // Un error que le llega a la persona. El primer dato es el código del mensaje (por ejemplo "TRIP_NOT_FOUND"):
 // la app lo traduce a su idioma con errors.TRIP_NOT_FOUND, y los datos variables viajan en params.
@@ -14,7 +15,8 @@ export class AppError extends Error{
 
     constructor(keyOrMessage: string, statusCode = 500, code?: string, params?: Params){
             const isKey = hasKey(`errors.${keyOrMessage}`);
-            super(isKey ? t("es", `errors.${keyOrMessage}`, params) : keyOrMessage);
+            // Los datos que empiezan con "@" (el nombre de un campo) se traducen también en el mensaje en español
+            super(isKey ? t("es", `errors.${keyOrMessage}`, resolveParams("es", params)) : keyOrMessage);
             this.statusCode = statusCode;
             this.code = code;
             this.key = isKey ? keyOrMessage : undefined;

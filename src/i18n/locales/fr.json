@@ -173,7 +173,13 @@
     "RATING_RANGE": "{{field}} doit être compris entre 1 et 5",
     "DOC_DATE_INVALID": "La date d'expiration de {{document}} n'est pas valide",
     "DOC_EXPIRED": "{{document}} est expiré",
-    "NETWORK_ERROR": "Impossible de nous connecter à FleteYa. Vérifiez votre connexion internet et réessayez."
+    "NETWORK_ERROR": "Impossible de nous connecter à FleteYa. Vérifiez votre connexion internet et réessayez.",
+    "FARE_INVALID": "{{field}} n'est pas un montant valide",
+    "PHONE_DIGITS": "{{field}} ne doit contenir que des chiffres",
+    "PHONE_FORMAT": "{{field}} n'est pas un numéro de portable valide. Exemple : {{example}}",
+    "PLATE_INVALID": "La plaque doit comporter de 2 à 10 lettres ou chiffres",
+    "COUNTRY_INVALID": "Le pays n'est pas valide",
+    "COUNTRY_NOT_SUPPORTED": "FleteYa n'est pas encore disponible dans votre pays. Pour l'instant, nous sommes présents en : {{countries}}"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "Si l'e-mail est enregistré, nous vous avons envoyé un code pour réinitialiser votre mot de passe",
@@ -198,7 +204,8 @@
     "driver_rating": "La note du chauffeur",
     "license": "Le permis",
     "soat": "Le SOAT",
-    "techno": "Le contrôle technique"
+    "techno": "Le contrôle technique",
+    "offer": "L'offre"
   },
   "docs": {
     "LICENSE": "Permis de conduire",

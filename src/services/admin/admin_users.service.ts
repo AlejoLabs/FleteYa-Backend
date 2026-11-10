@@ -67,7 +67,7 @@ export const getUserDetail = async (id: number) => {
         prisma.clientRequests.aggregate({ where: { id_client: id, client_rating: { not: null } }, _avg: { client_rating: true }, _count: { client_rating: true } }),
         prisma.clientRequests.findMany({
             where: { OR: [{ id_client: id }, { id_driver_assigned: id }] }, orderBy: { id: "desc" }, take: 10,
-            select: { id: true, status: true, fare_offered: true, fare_assigned: true, created_at: true, id_client: true, pickup_description: true, destination_description: true },
+            select: { id: true, status: true, fare_offered: true, fare_assigned: true, currency: true, country_code: true, created_at: true, id_client: true, pickup_description: true, destination_description: true },
         }),
         prisma.incidentReport.count({ where: { client_request: { OR: [{ id_client: id }, { id_driver_assigned: id }] } } }),
     ]);

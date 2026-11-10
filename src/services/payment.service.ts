@@ -2,9 +2,11 @@ import crypto from "crypto";
 import prisma from "../database/prismaClient.js";
 import { AppError } from "../utils/App.Error.js";
 import { deny } from "../utils/authorization.js";
-import { CURRENCY, checkoutUrl, findTransaction, gatewayName, isGatewayAvailable } from "../utils/paymentGateway.js";
+import { checkoutUrl, findTransaction, gatewayName, isGatewayAvailable } from "../utils/paymentGateway.js";
 import { notifyUser } from "../sockets/socketHandler.js";
-import { formatPesos, sendPush } from "../utils/push.js";
+import { pushAmount, sendPush } from "../utils/push.js";
+import { roundMoney } from "../utils/money.js";
+import { getCurrency } from "./countries.service.js";
 import type { PaymentMethod } from "../generated/prisma/enums.js";
 
 // Pago del flete: se cobra al terminar el viaje, así una cancelación nunca obliga a devolver dinero.
@@ -14,13 +16,17 @@ import type { PaymentMethod } from "../generated/prisma/enums.js";
 const findPaymentTrip = async (id: number) => {
     const trip = await prisma.clientRequests.findUnique({
         where: { id },
-        select: { id: true, id_client: true, id_driver_assigned: true, status: true, fare_assigned: true, commission: true, payment_method: true, paid_at: true }
+        select: { id: true, id_client: true, id_driver_assigned: true, status: true, fare_assigned: true, commission: true, payment_method: true, paid_at: true, currency: true }
     });
     if (!trip) {
         throw new AppError("REQUEST_NOT_FOUND", 404);
     }
     return trip;
 }
+
+// Lo que se cobra: el valor acordado en la moneda del viaje, con sus decimales (COP sin centavos)
+const amountOf = async (trip: { fare_assigned: number | null; currency: string }) =>
+    roundMoney(trip.fare_assigned ?? 0, (await getCurrency(trip.currency)).decimals);
 
 type PaymentTrip = Awaited<ReturnType<typeof findPaymentTrip>>;
 
@@ -52,10 +58,11 @@ const paymentStatusOf = async (trip: PaymentTrip) => {
         id_client_request: trip.id,
         payment_method: trip.payment_method,
         paid_at: trip.paid_at,
-        amount: Math.round(trip.fare_assigned ?? 0),
+        currency: trip.currency,
+        amount: await amountOf(trip),
         commission: trip.commission ?? 0,
-        // WOMPI, SIMULATOR o null si no hay pasarela: en ese caso la app solo ofrece efectivo
-        online_gateway: gatewayName(),
+        // WOMPI, SIMULATOR o null si no hay pasarela para la moneda del viaje: en ese caso la app solo ofrece efectivo
+        online_gateway: gatewayName(trip.currency),
         last_payment: last,
     };
 }
@@ -76,9 +83,9 @@ const markPaid = async (trip: PaymentTrip, method: PaymentMethod, label: string)
     if (trip.id_driver_assigned) {
         notifyUser(trip.id_driver_assigned, `trip_paid/${trip.id}`, payload);
         if (method === "WOMPI") {
-            void sendPush(trip.id_driver_assigned, {
-                type: "TRIP_PAID", id_client_request: trip.id, key: "TRIP_PAID", params: { amount: formatPesos(trip.fare_assigned ?? 0) },
-            });
+            void sendPush(trip.id_driver_assigned, (language) => ({
+                type: "TRIP_PAID", id_client_request: trip.id, key: "TRIP_PAID", params: { amount: pushAmount(trip.fare_assigned ?? 0, trip.currency, language) },
+            }));
         }
     }
 }
@@ -95,7 +102,7 @@ export const changePaymentMethod = async (userId: number, id: number, method: Pa
     if (["CANCELED", "EXPIRED"].includes(trip.status)) {
         throw new AppError("TRIP_NOT_ACTIVE", 409);
     }
-    if (method === "WOMPI" && !isGatewayAvailable()) {
+    if (method === "WOMPI" && !isGatewayAvailable(trip.currency)) {
         throw new AppError("ONLINE_PAYMENTS_UNAVAILABLE", 503);
     }
     await prisma.clientRequests.update({ where: { id }, data: { payment_method: method } });
@@ -112,20 +119,20 @@ export const startWompiPayment = async (userId: number, id: number) => {
         throw deny(userId, "pagar", `client_requests/${id}`);
     }
     assertPayable(trip);
-    if (!isGatewayAvailable()) {
+    if (!isGatewayAvailable(trip.currency)) {
         throw new AppError("ONLINE_PAYMENTS_UNAVAILABLE", 503);
     }
 
-    const amount = Math.round(trip.fare_assigned ?? 0);
+    const amount = await amountOf(trip);
     // Una referencia nueva por intento: Wompi no acepta pagar dos veces la misma
     const reference = `FY-${id}-${crypto.randomBytes(5).toString("hex")}`;
-    const url = checkoutUrl(reference, amount * 100);
+    const url = checkoutUrl(reference, Math.round(amount * 100), trip.currency);
 
     await prisma.$transaction([
-        prisma.payment.create({ data: { id_client_request: id, reference, method: "WOMPI", amount } }),
+        prisma.payment.create({ data: { id_client_request: id, reference, method: "WOMPI", amount, currency: trip.currency } }),
         prisma.clientRequests.update({ where: { id }, data: { payment_method: "WOMPI" } }),
     ]);
-    return { reference, amount, checkout_url: url };
+    return { reference, amount, currency: trip.currency, checkout_url: url };
 }
 
 // Pregunta a Wompi por los intentos pendientes del viaje y guarda lo que responda. La llaman el cliente al volver
@@ -146,7 +153,7 @@ export const verifyWompiPayments = async (userId: number, id: number) => {
         if (!tx || tx.status === "PENDING") continue;
 
         // Si Wompi responde otro monto o moneda, alguien alteró el pago: no se da por bueno
-        const matches = tx.amount_in_cents === payment.amount * 100 && tx.currency === CURRENCY;
+        const matches = tx.amount_in_cents === Math.round(payment.amount * 100) && tx.currency === payment.currency;
         const status = matches ? tx.status : "ERROR";
         if (!matches) {
             console.warn(`[pagos] la transacción ${tx.id} no coincide con la referencia ${payment.reference}`);
@@ -174,9 +181,9 @@ export const confirmCashPayment = async (userId: number, id: number) => {
         throw new AppError("CLIENT_CHOSE_ONLINE_PAYMENT", 409);
     }
 
-    const amount = Math.round(trip.fare_assigned ?? 0);
+    const amount = await amountOf(trip);
     await prisma.payment.create({
-        data: { id_client_request: id, reference: `FY-${id}-cash-${crypto.randomBytes(3).toString("hex")}`, method: "CASH", amount, status: "APPROVED" }
+        data: { id_client_request: id, reference: `FY-${id}-cash-${crypto.randomBytes(3).toString("hex")}`, method: "CASH", amount, currency: trip.currency, status: "APPROVED" }
     });
     await markPaid(trip, "CASH", "en efectivo");
     return paymentStatusOf(await findPaymentTrip(id));

@@ -1,6 +1,6 @@
 import prisma from "../database/prismaClient.js";
 import { canCarry } from "../utils/vehicles.js";
-import { formatPesos, sendPush } from "../utils/push.js";
+import { pushAmount, sendPush } from "../utils/push.js";
 import { LOCALE_TAGS, t } from "../i18n/index.js";
 import { driverBlockReason, ELIGIBILITY_SELECT } from "./driver_eligibility.service.js";
 
@@ -16,7 +16,7 @@ export const alertNearbyDrivers = async (idClientRequest: number) => {
         const trip = await prisma.clientRequests.findUnique({
             where: { id: idClientRequest },
             select: {
-                id_client: true, fare_offered: true, cargo_category: true, required_vehicle: true,
+                id_client: true, fare_offered: true, currency: true, cargo_category: true, required_vehicle: true,
                 weight_kg: true, length_cm: true, width_cm: true, height_cm: true, packages: true, scheduled_at: true,
             }
         });
@@ -47,7 +47,7 @@ export const alertNearbyDrivers = async (idClientRequest: number) => {
             const distanceKm = Number(distance) / 1000;
             void sendPush(car.id_driver, (language) => ({
                 type: "NEW_REQUEST", id_client_request: idClientRequest, key: "NEW_REQUEST",
-                params: { amount: formatPesos(trip.fare_offered), category: t(language, `cargoCategories.${trip.cargo_category}`), km: distanceKm.toLocaleString(LOCALE_TAGS[language], { minimumFractionDigits: 1, maximumFractionDigits: 1 }), when: trip.scheduled_at ? t(language, "push.NEW_REQUEST.scheduled") : "" },
+                params: { amount: pushAmount(trip.fare_offered, trip.currency, language), category: t(language, `cargoCategories.${trip.cargo_category}`), km: distanceKm.toLocaleString(LOCALE_TAGS[language], { minimumFractionDigits: 1, maximumFractionDigits: 1 }), when: trip.scheduled_at ? t(language, "push.NEW_REQUEST.scheduled") : "" },
             }));
         }
     } catch (err) {

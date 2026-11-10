@@ -1,13 +1,10 @@
 import {z} from "zod";
 import { vm } from "../i18n/validation.js";
 
-// Límites de precio de un flete en pesos colombianos: evitan ofertas de $12 o valores absurdos
-export const MIN_FARE = 5000;
-export const MAX_FARE = 10000000;
-
+// Aquí solo que sea un número positivo. Los límites (en Colombia de $5.000 a $10.000.000) y los decimales dependen
+// de la moneda del flete: los revisa el servicio con checkFare (services/countries.service)
 export const fareSchema = (field: string) => z.coerce.number()
-    .refine((val) => val >= MIN_FARE, {message: vm("FARE_MIN", { field: `@fields.${field}`, min: `$${MIN_FARE.toLocaleString("es-CO")}` })})
-    .refine((val) => val <= MAX_FARE, {message: vm("FARE_MAX", { field: `@fields.${field}`, max: `$${MAX_FARE.toLocaleString("es-CO")}` })});
+    .refine((val) => Number.isFinite(val) && val > 0, {message: vm("FARE_INVALID", { field: `@fields.${field}` })});
 
 export const latSchema = (field: string) => z.coerce.number().refine((val) => val >= -90 && val <= 90 && val !== 0, {message: vm("LAT_INVALID", { field: `@fields.${field}` })});
 export const lngSchema = (field: string) => z.coerce.number().refine((val) => val >= -180 && val <= 180 && val !== 0, {message: vm("LNG_INVALID", { field: `@fields.${field}` })});
@@ -15,8 +12,8 @@ export const lngSchema = (field: string) => z.coerce.number().refine((val) => va
 export const MIN_SCHEDULE_AHEAD_MS = 60 * 60 * 1000;
 export const MAX_SCHEDULE_AHEAD_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Celular colombiano: 10 dígitos empezando por 3
-const phoneSchema = (field: string) => z.string().trim().regex(/^3\d{9}$/, {message: vm("PHONE_10_DIGITS", { field: `@fields.${field}` })}).optional();
+// Solo dígitos. El formato del país del flete (en Colombia, 10 dígitos empezando por 3) lo revisa el servicio
+const phoneSchema = (field: string) => z.string().trim().regex(/^\d{6,15}$/, {message: vm("PHONE_DIGITS", { field: `@fields.${field}` })}).optional();
 const floorSchema = (field: string) => z.coerce.number().int().refine((val) => val >= -5 && val <= 60, {message: vm("FLOOR_INVALID", { field: `@fields.${field}` })}).optional();
 
 const ratingSchema =(field: string) => z.coerce.number().refine((val) => val >= 1 && val <= 5, {message: vm("RATING_RANGE", { field: `@fields.${field}` })});

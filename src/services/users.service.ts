@@ -2,7 +2,8 @@ import prisma from "../database/prismaClient.js";
 import bcrypt from "bcryptjs";
 import type { createUserInput, updateUserInput } from "../validators/user.validator.js";
 import { AppError } from "../utils/App.Error.js";
-import type { Language } from "../i18n/languages.js";
+import { normalizeLanguage, type Language } from "../i18n/languages.js";
+import { getCountry } from "./countries.service.js";
 
 
 export const update = async (id: number, data: updateUserInput, file?: Express.Multer.File) => {
@@ -11,6 +12,9 @@ export const update = async (id: number, data: updateUserInput, file?: Express.M
     if (!user) {
         throw new AppError("USER_NOT_FOUND", 404);
     }
+
+    // Cambió el indicativo del celular: cambia su país (con eso, las reglas de placa y documentos)
+    const countryCode = data.country_code ? (await getCountry(data.country_code)).code : user.country_code;
 
     let imagePath = user.image;
 
@@ -24,6 +28,7 @@ export const update = async (id: number, data: updateUserInput, file?: Express.M
             name: data.name ?? user.name,
             lastname: data.lastname ?? user.lastname,
             phone: data.phone ?? user.phone,
+            country_code: countryCode,
             image: imagePath
         },
         include: {
@@ -99,4 +104,10 @@ export const saveNotificationToken = async (id: number, token: string | null) =>
     }
     await prisma.user.update({ where: { id }, data: { notification_token: token } });
     return { saved: token !== null };
+}
+
+// Idioma guardado de la persona (para textos que arma el backend, como los de Google Maps)
+export const getUserLanguage = async (id: number): Promise<Language> => {
+    const user = await prisma.user.findUnique({ where: { id }, select: { language: true } });
+    return normalizeLanguage(user?.language);
 }

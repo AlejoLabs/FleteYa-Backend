@@ -15,7 +15,7 @@ export const ACTIVE_STATUSES: ClientRequestStatus[] = ["ACCEPTED", "ON_THE_WAY",
 export const findTripOrFail = async (id: number) => {
     const trip = await prisma.clientRequests.findUnique({
         where: { id },
-        select: { id: true, id_client: true, id_driver_assigned: true, status: true, fare_offered: true, scheduled_at: true, expires_at: true }
+        select: { id: true, id_client: true, id_driver_assigned: true, status: true, fare_offered: true, currency: true, country_code: true, scheduled_at: true, expires_at: true }
     });
     if (!trip) {
         throw new AppError("REQUEST_NOT_FOUND", 404);

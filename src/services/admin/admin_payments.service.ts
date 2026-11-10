@@ -1,6 +1,6 @@
 import prisma from "../../database/prismaClient.js";
 import { AppError } from "../../utils/App.Error.js";
-import { formatPesos } from "../../utils/push.js";
+import { formatMoney } from "../../utils/money.js";
 import { logAdminAction } from "./admin_audit.service.js";
 
 // Pagos y comisiones. Por la app, FleteYa recibe el pago y la comisión se queda sola. En efectivo, el conductor
@@ -14,7 +14,7 @@ export const listPayments = async (page: number) => {
         prisma.payment.findMany({
             orderBy: { id: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
             select: {
-                id: true, reference: true, method: true, amount: true, status: true, wompi_method: true, created_at: true,
+                id: true, reference: true, method: true, amount: true, currency: true, status: true, wompi_method: true, created_at: true,
                 clientRequest: { select: { id: true, commission: true, client: { select: { name: true, lastname: true } } } },
             },
         }),
@@ -22,7 +22,7 @@ export const listPayments = async (page: number) => {
     return {
         total, page, page_size: PAGE_SIZE,
         items: rows.map((row) => ({
-            id: row.id, reference: row.reference, method: row.method, amount: row.amount, status: row.status,
+            id: row.id, reference: row.reference, method: row.method, amount: row.amount, currency: row.currency, status: row.status,
             channel: row.wompi_method, created_at: row.created_at,
             id_client_request: row.clientRequest.id, commission: row.clientRequest.commission,
             client: `${row.clientRequest.client.name} ${row.clientRequest.client.lastname}`.trim(),
@@ -63,9 +63,12 @@ export const settleCashCommission = async (adminId: number, idDriver: number) =>
         throw new AppError("Este conductor no tiene comisiones pendientes", 409);
     }
     const amount = Math.round(pending._sum.commission ?? 0);
+    // El registro dice cuánto en cada moneda: los pesos y los euros no se suman
+    const byCurrency = await prisma.clientRequests.groupBy({ by: ["currency"], where, _sum: { commission: true } });
+    const detail = byCurrency.map((row) => formatMoney(row._sum.commission ?? 0, row.currency, "es-CO")).join(" + ");
     await prisma.$transaction(async (tx) => {
         await tx.clientRequests.updateMany({ where, data: { commission_settled_at: new Date() } });
-        await logAdminAction(tx, adminId, "SETTLE_COMMISSION", "driver", idDriver, `${pending._count._all} viajes · ${formatPesos(amount)}`);
+        await logAdminAction(tx, adminId, "SETTLE_COMMISSION", "driver", idDriver, `${pending._count._all} viajes · ${detail}`);
     });
     return { id_driver: idDriver, trips: pending._count._all, amount };
 }

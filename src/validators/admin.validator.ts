@@ -18,20 +18,23 @@ export const rejectDriverSchema = z.object({ note: reason("qué debe corregir") 
 export const cancelTripSchema = z.object({ reason: reason("el motivo") });
 export const incidentStatusSchema = z.object({ status: z.enum(["OPEN", "IN_REVIEW", "RESOLVED"], {message: "Estado no válido"}) });
 
-const pesos = (label: string, max: number) => z.coerce.number({message: `${label}: escribe un número`})
+// Montos en la moneda del país que se edita. Los techos son amplios para cualquier moneda (pensados en pesos)
+const amount = (label: string, max: number) => z.coerce.number({message: `${label}: escribe un número`})
     .min(0, {message: `${label} no puede ser negativo`})
     .max(max, {message: `${label}: el máximo es ${max.toLocaleString("es-CO")}`});
 
 export const updateRatesSchema = z.object({
-    km_value: pesos("Valor por km", 20000),
-    min_value: pesos("Valor por minuto", 5000),
-    weight_rate: pesos("Valor por kg", 5000),
-    size_rate: pesos("Valor por m³", 100000),
+    // País cuyas tarifas se cambian; sin él, Colombia (la pantalla de antes de la Fase 9b)
+    country_code: z.string().regex(/^[A-Z]{2}$/, {message: "País no válido"}).optional(),
+    km_value: amount("Valor por km", 20000),
+    min_value: amount("Valor por minuto", 5000),
+    weight_rate: amount("Valor por kg", 5000),
+    size_rate: amount("Valor por m³", 100000),
     // Fracción: 0.1 = 10 %
     commission_rate: z.coerce.number().min(0, {message: "La comisión no puede ser negativa"}).max(0.5, {message: "La comisión no puede pasar del 50 %"}),
     vehicle_rates: z.array(z.object({
         vehicle_type: z.enum(["CARRY", "ESTACAS", "FURGON", "CAMION"]),
-        base_fare: pesos("Tarifa base", 1000000),
+        base_fare: amount("Tarifa base", 1000000),
         km_factor: z.coerce.number().min(0.1, {message: "El factor va de 0,1 a 10"}).max(10, {message: "El factor va de 0,1 a 10"}),
     })).max(4),
 });

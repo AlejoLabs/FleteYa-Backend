@@ -173,7 +173,13 @@
     "RATING_RANGE": "{{field}} must be between 1 and 5",
     "DOC_DATE_INVALID": "The expiry date of {{document}} is not valid",
     "DOC_EXPIRED": "{{document}} has expired",
-    "NETWORK_ERROR": "We couldn't connect to FleteYa. Check your internet and try again."
+    "NETWORK_ERROR": "We couldn't connect to FleteYa. Check your internet and try again.",
+    "FARE_INVALID": "{{field}} is not a valid amount",
+    "PHONE_DIGITS": "{{field}} must contain only numbers",
+    "PHONE_FORMAT": "{{field}} is not a valid mobile number. Example: {{example}}",
+    "PLATE_INVALID": "The plate must have 2 to 10 letters or numbers",
+    "COUNTRY_INVALID": "The country is not valid",
+    "COUNTRY_NOT_SUPPORTED": "FleteYa is not available in your country yet. For now we operate in: {{countries}}"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "If the email is registered, we sent you a code to reset your password",
@@ -198,7 +204,8 @@
     "driver_rating": "The driver rating",
     "license": "The license",
     "soat": "The SOAT",
-    "techno": "The technical inspection"
+    "techno": "The technical inspection",
+    "offer": "The offer"
   },
   "docs": {
     "LICENSE": "Driver's license",

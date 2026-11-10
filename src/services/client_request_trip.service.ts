@@ -7,7 +7,9 @@ import type { AssignDriverInput, CancelClientRequestInput, DeliverInput, UpdateC
 import { notifyDrivers, notifyUser } from "../sockets/socketHandler.js";
 import { findTripOrFail } from "./client_request.shared.js";
 import { countTripPhotos } from "./trip_photo.service.js";
-import { formatPesos, sendPush } from "../utils/push.js";
+import { pushAmount, sendPush } from "../utils/push.js";
+import { getCountry, getCurrency, ratesFor } from "./countries.service.js";
+import { roundMoney } from "../utils/money.js";
 
 // Ciclo del viaje después de buscar: asignar conductor, avanzar estados, entregar, cancelar y calificar
 
@@ -16,11 +18,12 @@ export const MAX_DELIVERY_ATTEMPTS = 5;
 
 const newDeliveryCode = () => crypto.randomInt(0, 10000).toString().padStart(4, "0");
 
-// La comisión va incluida en el valor acordado: el cliente paga el valor y el conductor recibe el valor menos la comisión
-const commissionFor = async (fare: number) => {
-    const values = await prisma.timeAndDistanceValues.findUnique({ where: { id: 1 }, select: { commission_rate: true } });
-    const rate = values?.commission_rate ?? 0;
-    return { rate, amount: Math.round(fare * rate) };
+// La comisión va incluida en el valor acordado: el cliente paga el valor y el conductor recibe el valor menos la comisión.
+// Sale del porcentaje del país del viaje (el suyo o el de su moneda) y se calcula en la moneda del viaje
+// (con centavos en EUR o USD)
+const commissionFor = async (fare: number, trip: { country_code: string; currency: string }) => {
+    const { commission_rate: rate } = await ratesFor(await getCountry(trip.country_code));
+    return { rate, amount: roundMoney(fare * rate, (await getCurrency(trip.currency)).decimals) };
 }
 
 export const assignDriver = async (userId: number, data: AssignDriverInput) => {
@@ -42,7 +45,7 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
     if (!offer) {
         throw new AppError("DRIVER_HAS_NO_OFFER", 400);
     }
-    const commission = await commissionFor(offer.fare_offered);
+    const commission = await commissionFor(offer.fare_offered, clientRequest);
 
     const rejectedDrivers = await prisma.$transaction(async (tx) => {
         // updateMany con status CREATED y sin vencer evita que dos aceptaciones simultáneas asignen dos conductores
@@ -79,13 +82,13 @@ export const assignDriver = async (userId: number, data: AssignDriverInput) => {
         notifyUser(idDriver, `offer_status/${idDriver}`, { id_client_request: data.id, status: "REJECTED", reason: "OTHER_DRIVER" });
     }
     notifyDrivers("client_request_removed", { id_client_request: data.id });
-    void sendPush(data.id_driver_assigned, {
-        type: "DRIVER_ASSIGNED", id_client_request: data.id, key: "DRIVER_ASSIGNED", params: { amount: formatPesos(offer.fare_offered) },
-    });
+    void sendPush(data.id_driver_assigned, (language) => ({
+        type: "DRIVER_ASSIGNED", id_client_request: data.id, key: "DRIVER_ASSIGNED", params: { amount: pushAmount(offer.fare_offered, clientRequest.currency, language) },
+    }));
 
     return prisma.clientRequests.findUnique({
         where: { id: data.id },
-        select: { id: true, id_client: true, id_driver_assigned: true, fare_assigned: true, status: true }
+        select: { id: true, id_client: true, id_driver_assigned: true, fare_assigned: true, currency: true, status: true }
     });
 }
 

@@ -6,6 +6,7 @@ import { assertTripParticipant } from "../services/client_request.shared.js";
 import { AppError } from "../utils/App.Error.js";
 import { getUserId } from "../utils/authorization.js";
 import { VEHICLE_ORDER } from "../utils/vehicles.js";
+import { getUserLanguage } from "../services/users.service.js";
 import type { VehicleType } from "../generated/prisma/enums.js";
 
 
@@ -169,7 +170,8 @@ export const getTimeAndDistance = async (req: Request, res: Response, next: Next
             destinationLng,
             weight,
             size,
-            vehicle
+            vehicle,
+            await getUserLanguage(getUserId(req))
         );
         return res.status(200).json(data);
     } catch (err) {
