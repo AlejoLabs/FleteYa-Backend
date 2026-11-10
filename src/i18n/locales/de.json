@@ -179,7 +179,9 @@
     "PHONE_FORMAT": "{{field}} ist keine gültige Handynummer. Beispiel: {{example}}",
     "PLATE_INVALID": "Das Kennzeichen muss 2 bis 10 Buchstaben oder Ziffern haben",
     "COUNTRY_INVALID": "Das Land ist nicht gültig",
-    "COUNTRY_NOT_SUPPORTED": "FleteYa ist in deinem Land noch nicht verfügbar. Derzeit sind wir hier tätig: {{countries}}"
+    "COUNTRY_NOT_SUPPORTED": "FleteYa ist in deinem Land noch nicht verfügbar. Derzeit sind wir hier tätig: {{countries}}",
+    "DOC_EXPIRED_INSURANCE": "Deine Pflichtversicherung ist abgelaufen. Aktualisiere sie unter Mein Fahrzeug, um weiter Frachten zu erhalten",
+    "DOC_EXPIRED_INSPECTION": "Deine technische Prüfung ist abgelaufen. Aktualisiere sie unter Mein Fahrzeug, um weiter Frachten zu erhalten"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "Wenn die E-Mail registriert ist, haben wir dir einen Code zum Zurücksetzen des Passworts geschickt",
@@ -210,7 +212,9 @@
   "docs": {
     "LICENSE": "Führerschein",
     "SOAT": "SOAT",
-    "TECHNO": "Technische Prüfung"
+    "TECHNO": "Technische Prüfung",
+    "INSURANCE": "Pflichtversicherung",
+    "INSPECTION": "Technische Prüfung"
   },
   "cargoCategories": {
     "MUDANZA": "Umzug",

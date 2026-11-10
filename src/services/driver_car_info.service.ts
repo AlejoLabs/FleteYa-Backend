@@ -29,18 +29,21 @@ export const createDriverCarInfo = async (idDriver: number, data: CreateDriverCa
 
 // El dueño ve todo; los demás (el cliente que compara ofertas) solo el vehículo, sin números de licencia ni de tarjeta de propiedad
 export const getByDriver = async (idDriver: number, viewerId: number) => {
-    const car = await prisma.driverCarInfo.findUnique({
+    const found = await prisma.driverCarInfo.findUnique({
         where: {
             id_driver: idDriver
-        }
+        },
+        include: { driver: { select: { country_code: true } } }
     });
 
-    if (!car) {
+    if (!found) {
         throw new AppError("VEHICLE_INFO_NOT_FOUND", 404);
     }
+    const { driver, ...car } = found;
     if (viewerId === idDriver) {
-        // Qué le falta para recibir fletes (en revisión, rechazado o un documento vencido); null si puede trabajar
-        return { ...car, block_reason: driverBlockReason(car), block_reason_detail: blockReasonOf(car) };
+        // Qué le falta para recibir fletes (en revisión, rechazado o un documento vencido); null si puede trabajar.
+        // country_code: la app nombra los documentos según el país (SOAT en Colombia, seguro obligatorio en otros)
+        return { ...car, country_code: driver.country_code, block_reason: driverBlockReason(car), block_reason_detail: blockReasonOf(car, new Date(), driver.country_code) };
     }
     const { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, capacity_kg, capacity_m3, approval_status } = car;
     return { id_driver, brand, color, plate, vehicle_type, model_year, is_covered, capacity_kg, capacity_m3, approval_status };
@@ -85,7 +88,7 @@ export const updateMyVehicle = async (idDriver: number, data: UpdateVehicleInput
     // Mientras lo revisan deja de estar disponible
     if (review) await prisma.$executeRaw`DELETE FROM drivers_position WHERE id_driver = ${idDriver}`;
     await setDriverCanWork(idDriver, driverBlockReason(updated) === null);
-    return { ...updated, block_reason: driverBlockReason(updated), block_reason_detail: blockReasonOf(updated) };
+    return { ...updated, country_code: country.code, block_reason: driverBlockReason(updated), block_reason_detail: blockReasonOf(updated, new Date(), country.code) };
 }
 
 // Renovó la licencia, el SOAT o la técnico-mecánica. El aviso de vencimiento vuelve a contar desde cero

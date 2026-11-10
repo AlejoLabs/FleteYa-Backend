@@ -167,6 +167,7 @@ const plate = `AB${String(stamp).slice(-3)}CD`;
 const frDriver = await call("POST", "/auth/register-driver", null, { name: "Luc", lastname: "Prueba", email: emails.driver, phone: "698765432", password: "123456", country_code: "FR", vehicle: vehicle(`${plate.slice(0, 2)}-${plate.slice(2, 5)}-${plate.slice(5)}`, "C", "CAMION") });
 const frCar = frDriver.data?.user?.id ? (await call("GET", `/driver-car-info/${frDriver.data.user.id}`, frDriver.data.token)).data : null;
 check("Conductor en Francia: placa AB-123-CD aceptada (sin guiones) y licencia C para camión", frDriver.status === 200 && frCar?.plate === plate, `${frDriver.status} ${JSON.stringify(frDriver.data?.message)} ${frCar?.plate}`);
+check("Su vehículo dice el país (la app nombra los documentos: seguro obligatorio en vez de SOAT)", frCar?.country_code === "FR", String(frCar?.country_code));
 const coDriver = await call("POST", "/auth/register-driver", null, { name: "Juan", lastname: "Prueba", email: emails.co, phone: "3005556677", password: "123456", country_code: "CO", vehicle: vehicle(`ZX${String(stamp).slice(-3)}CD`) });
 check("En Colombia la placa sigue siendo ABC123: 400 PLATE_FORMAT", coDriver.status === 400 && coDriver.data?.key === "PLATE_FORMAT", `${coDriver.status} ${coDriver.data?.key}`);
 const coTruck = await call("POST", "/auth/register-driver", null, { name: "Juan", lastname: "Prueba", email: emails.co, phone: "3005556677", password: "123456", vehicle: vehicle(`ZXC${String(stamp).slice(-3)}`, "B1", "CAMION") });

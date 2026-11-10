@@ -179,7 +179,9 @@
     "PHONE_FORMAT": "{{field}} is not a valid mobile number. Example: {{example}}",
     "PLATE_INVALID": "The plate must have 2 to 10 letters or numbers",
     "COUNTRY_INVALID": "The country is not valid",
-    "COUNTRY_NOT_SUPPORTED": "FleteYa is not available in your country yet. For now we operate in: {{countries}}"
+    "COUNTRY_NOT_SUPPORTED": "FleteYa is not available in your country yet. For now we operate in: {{countries}}",
+    "DOC_EXPIRED_INSURANCE": "Your mandatory insurance has expired. Update it in My vehicle to keep receiving shipments",
+    "DOC_EXPIRED_INSPECTION": "Your vehicle inspection has expired. Update it in My vehicle to keep receiving shipments"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "If the email is registered, we sent you a code to reset your password",
@@ -210,7 +212,9 @@
   "docs": {
     "LICENSE": "Driver's license",
     "SOAT": "SOAT",
-    "TECHNO": "Technical inspection"
+    "TECHNO": "Technical inspection",
+    "INSURANCE": "Mandatory insurance",
+    "INSPECTION": "Vehicle inspection"
   },
   "cargoCategories": {
     "MUDANZA": "Moving",

@@ -179,7 +179,9 @@
     "PHONE_FORMAT": "{{field}} n'est pas un numéro de portable valide. Exemple : {{example}}",
     "PLATE_INVALID": "La plaque doit comporter de 2 à 10 lettres ou chiffres",
     "COUNTRY_INVALID": "Le pays n'est pas valide",
-    "COUNTRY_NOT_SUPPORTED": "FleteYa n'est pas encore disponible dans votre pays. Pour l'instant, nous sommes présents en : {{countries}}"
+    "COUNTRY_NOT_SUPPORTED": "FleteYa n'est pas encore disponible dans votre pays. Pour l'instant, nous sommes présents en : {{countries}}",
+    "DOC_EXPIRED_INSURANCE": "Votre assurance obligatoire est expirée. Mettez-la à jour dans Mon véhicule pour continuer à recevoir des frets",
+    "DOC_EXPIRED_INSPECTION": "Votre contrôle technique est expiré. Mettez-le à jour dans Mon véhicule pour continuer à recevoir des frets"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "Si l'e-mail est enregistré, nous vous avons envoyé un code pour réinitialiser votre mot de passe",
@@ -210,7 +212,9 @@
   "docs": {
     "LICENSE": "Permis de conduire",
     "SOAT": "SOAT",
-    "TECHNO": "Contrôle technique"
+    "TECHNO": "Contrôle technique",
+    "INSURANCE": "Assurance obligatoire",
+    "INSPECTION": "Contrôle technique"
   },
   "cargoCategories": {
     "MUDANZA": "Déménagement",

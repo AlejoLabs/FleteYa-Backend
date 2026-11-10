@@ -2,6 +2,7 @@ import prisma from "../database/prismaClient.js";
 import { sendPush } from "../utils/push.js";
 import { t, type Language } from "../i18n/index.js";
 import { documentsStatus, EXPIRING_SOON_DAYS } from "./driver_car_info.service.js";
+import { docNameKey } from "./driver_eligibility.service.js";
 
 // Recordatorios que corren solos desde server.ts
 
@@ -41,8 +42,9 @@ export const sendScheduledReminders = async () => {
 }
 
 // "SOAT vence en 5 días" / "SOAT está vencido", con el nombre del documento en el idioma de quien lo recibe
-const describe = (language: Language, doc: { key: string; days_left: number; status: string }) => {
-    const label = t(language, `docs.${doc.key}`);
+// y el de su país (fuera de Colombia, "Seguro obligatorio")
+const describe = (language: Language, doc: { key: string; days_left: number; status: string }, countryCode: string) => {
+    const label = t(language, `docs.${docNameKey(doc.key, countryCode)}`);
     return doc.status === "EXPIRED"
         ? t(language, "push.DOCUMENTS_EXPIRING.expired", { label })
         : t(language, "push.DOCUMENTS_EXPIRING.expiresIn", { label, count: doc.days_left });
@@ -61,7 +63,7 @@ export const remindExpiringDocuments = async () => {
             ],
             AND: [{ OR: [{ documents_reminded_at: null }, { documents_reminded_at: { lt: new Date(now.getTime() - DOCUMENTS_REMIND_EVERY_MS) } }] }]
         },
-        select: { id_driver: true, license_expires_at: true, soat_expires_at: true, techno_expires_at: true },
+        select: { id_driver: true, license_expires_at: true, soat_expires_at: true, techno_expires_at: true, driver: { select: { country_code: true } } },
         take: 200
     });
 
@@ -72,7 +74,7 @@ export const remindExpiringDocuments = async () => {
         void sendPush(car.id_driver, (language) => ({
             type: "DOCUMENTS_EXPIRING",
             key: pending.some((doc) => doc.status === "EXPIRED") ? "DOCUMENTS_EXPIRED" : "DOCUMENTS_EXPIRING",
-            params: { list: pending.map((doc) => describe(language, doc)).join(". ") },
+            params: { list: pending.map((doc) => describe(language, doc, car.driver.country_code)).join(". ") },
         }));
     }
     if (cars.length) console.log(`[recordatorios] documentos revisados de ${cars.length} conductores`);

@@ -179,7 +179,9 @@
     "PHONE_FORMAT": "{{field}} non è un numero di cellulare valido. Esempio: {{example}}",
     "PLATE_INVALID": "La targa deve avere da 2 a 10 lettere o numeri",
     "COUNTRY_INVALID": "Il paese non è valido",
-    "COUNTRY_NOT_SUPPORTED": "FleteYa non è ancora disponibile nel tuo paese. Per ora operiamo in: {{countries}}"
+    "COUNTRY_NOT_SUPPORTED": "FleteYa non è ancora disponibile nel tuo paese. Per ora operiamo in: {{countries}}",
+    "DOC_EXPIRED_INSURANCE": "La tua assicurazione obbligatoria è scaduta. Aggiornala in Il mio veicolo per continuare a ricevere trasporti",
+    "DOC_EXPIRED_INSPECTION": "La tua revisione tecnica è scaduta. Aggiornala in Il mio veicolo per continuare a ricevere trasporti"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "Se l'e-mail è registrata, ti abbiamo inviato un codice per reimpostare la password",
@@ -210,7 +212,9 @@
   "docs": {
     "LICENSE": "Patente di guida",
     "SOAT": "SOAT",
-    "TECHNO": "Revisione tecnica"
+    "TECHNO": "Revisione tecnica",
+    "INSURANCE": "Assicurazione obbligatoria",
+    "INSPECTION": "Revisione tecnica"
   },
   "cargoCategories": {
     "MUDANZA": "Trasloco",

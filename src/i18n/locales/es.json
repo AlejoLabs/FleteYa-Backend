@@ -179,7 +179,9 @@
     "PHONE_FORMAT": "{{field}} no es un celular válido. Ejemplo: {{example}}",
     "PLATE_INVALID": "La placa debe tener de 2 a 10 letras o números",
     "COUNTRY_INVALID": "El país no es válido",
-    "COUNTRY_NOT_SUPPORTED": "FleteYa todavía no está disponible en tu país. Por ahora operamos en: {{countries}}"
+    "COUNTRY_NOT_SUPPORTED": "FleteYa todavía no está disponible en tu país. Por ahora operamos en: {{countries}}",
+    "DOC_EXPIRED_INSURANCE": "Tu seguro obligatorio está vencido. Actualízalo en Mi vehículo para seguir recibiendo fletes",
+    "DOC_EXPIRED_INSPECTION": "Tu revisión técnica está vencida. Actualízala en Mi vehículo para seguir recibiendo fletes"
   },
   "messages": {
     "FORGOT_PASSWORD_SENT": "Si el correo está registrado, te enviamos un código para restablecer la contraseña",
@@ -210,7 +212,9 @@
   "docs": {
     "LICENSE": "Licencia de conducción",
     "SOAT": "SOAT",
-    "TECHNO": "Revisión técnico-mecánica"
+    "TECHNO": "Revisión técnico-mecánica",
+    "INSURANCE": "Seguro obligatorio",
+    "INSPECTION": "Revisión técnica"
   },
   "cargoCategories": {
     "MUDANZA": "Mudanza",
