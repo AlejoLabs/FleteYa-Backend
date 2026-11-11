@@ -35,12 +35,14 @@ export const getStats = async (days: number) => {
             by: ["cancel_reason"], where: { status: "CANCELED", update_at: { gte: since } },
             _count: { _all: true }, orderBy: { _count: { cancel_reason: "desc" } }, take: 6,
         }),
-        // Desde que se publica un flete inmediato hasta que el cliente acepta una oferta
+        // Desde que se publica un flete inmediato hasta que el cliente acepta una oferta. Un flete con la oferta
+        // aceptada antes de crearse es un dato dañado (pasó con fechas corridas de zona horaria): no entra al
+        // promedio, para que uno solo no lo vuelva negativo
         prisma.$queryRaw<{ minutes: number | null }[]>`
             SELECT AVG(TIMESTAMPDIFF(SECOND, CR.created_at, O.update_at)) / 60 AS minutes
             FROM client_requests AS CR
             INNER JOIN driver_trip_offers AS O ON O.id_client_request = CR.id AND O.status = 'ACCEPTED'
-            WHERE CR.created_at >= ${since} AND CR.scheduled_at IS NULL`,
+            WHERE CR.created_at >= ${since} AND CR.scheduled_at IS NULL AND O.update_at >= CR.created_at`,
         // El promedio por vehículo, en cada moneda: un promedio de pesos con euros no dice nada
         prisma.$queryRaw<{ vehicle: string; currency: string; trips: bigint; avg_fare: number }[]>`
             SELECT required_vehicle AS vehicle, currency, COUNT(*) AS trips, AVG(COALESCE(fare_assigned, fare_offered)) AS avg_fare
