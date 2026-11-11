@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "../database/prismaClient.js";

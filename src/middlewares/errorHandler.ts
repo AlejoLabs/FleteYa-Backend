@@ -36,11 +36,17 @@ export const errorHandler = (
         return res.status(400).json(errorBody(400, key));
     }
 
+    // Errores al leer el cuerpo (JSON mal escrito, cuerpo demasiado grande): son del que llama, no del servidor
+    if (typeof err?.type === "string" && err.type.startsWith("entity.") && err.status >= 400 && err.status < 500) {
+        return res.status(err.status).json(errorBody(err.status, "MALFORMED_REQUEST"));
+    }
+
     console.error(err);
-    
-    return res.status(err.statusCode || 500).json({
+
+    const statusCode = err.statusCode || 500;
+    return res.status(statusCode).json({
         message: "Internal server error",
-        statusCode: 500,
+        statusCode,
         key: "INTERNAL_ERROR",
     })
 }

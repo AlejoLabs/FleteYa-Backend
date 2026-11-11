@@ -8,6 +8,7 @@ import { notifyUser } from "../sockets/socketHandler.js";
 import { pushAmount, sendPush } from "../utils/push.js";
 import { checkFare, getCurrency } from "./countries.service.js";
 import { assertDriverCanWork } from "./driver_eligibility.service.js";
+import { withTransactionRetry } from "../utils/transactionRetry.js";
 
 // Ofertar o contraofertar: si el conductor ya tenía una oferta pendiente, la nueva la reemplaza
 export const createDriverTripOffer = async (idDriver: number, data: CreateDriverTripOfferInput) => {
@@ -44,7 +45,8 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
         throw new AppError("REQUEST_DISMISSED", 409);
     }
 
-    const offer = await prisma.$transaction(async (tx) => {
+    // Dos ofertas del mismo conductor a la vez (un doble toque) pueden chocar en la base: se reintenta
+    const offer = await withTransactionRetry(() => prisma.$transaction(async (tx) => {
         await tx.driverTripOffer.updateMany({
             where: { id_client_request: data.id_client_request, id_driver: idDriver, status: "PENDING" },
             data: { status: "WITHDRAWN" }
@@ -58,7 +60,7 @@ export const createDriverTripOffer = async (idDriver: number, data: CreateDriver
                 distance: data.distance
             }
         });
-    });
+    }));
 
     // Con la app abierta la oferta llega por socket; la push es para cuando el cliente salió de la app mientras espera
     void sendPush(clientRequest.id_client, (language) => ({

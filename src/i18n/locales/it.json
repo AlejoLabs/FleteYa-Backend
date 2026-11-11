@@ -163,6 +163,8 @@
     "TOO_MANY_FILES": "Hai allegato più foto di quelle consentite",
     "UPLOAD_FAILED": "Non è stato possibile caricare il file",
     "INTERNAL_ERROR": "Qualcosa è andato storto sul server. Riprova",
+
+    "MALFORMED_REQUEST": "La richiesta non ha un formato valido",
     "LANGUAGE_INVALID": "La lingua non è valida",
     "FARE_MIN": "{{field}} deve essere di almeno {{min}}",
     "FARE_MAX": "{{field}} non può superare {{max}}",

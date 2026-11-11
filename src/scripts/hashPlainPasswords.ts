@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import prisma from "../database/prismaClient.js";
 
 // Usuarios creados a mano en la BD pueden tener la contraseña en texto plano, y entonces ni siquiera pueden entrar
