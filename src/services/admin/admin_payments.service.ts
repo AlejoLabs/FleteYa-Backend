@@ -33,7 +33,7 @@ export const listPayments = async (page: number) => {
 // Lo que cada conductor debe de sus viajes en efectivo, el que más debe primero
 export const listCashCommissions = async () => {
     const rows = await prisma.clientRequests.groupBy({
-        by: ["id_driver_assigned"],
+        by: ["id_driver_assigned", "currency"],
         where: { payment_method: "CASH", paid_at: { not: null }, commission_settled_at: null, id_driver_assigned: { not: null } },
         _sum: { commission: true, fare_assigned: true },
         _count: { _all: true },
@@ -48,21 +48,23 @@ export const listCashCommissions = async () => {
             const driver = drivers.find((user) => user.id === row.id_driver_assigned)!;
             return {
                 id_driver: row.id_driver_assigned!, name: `${driver.name} ${driver.lastname}`.trim(), email: driver.email,
-                trips: row._count._all, collected: Math.round(row._sum.fare_assigned ?? 0),
-                owed: Math.round(row._sum.commission ?? 0), oldest: row._min.paid_at,
+                currency: row.currency,
+                trips: row._count._all, collected: row._sum.fare_assigned ?? 0,
+                owed: row._sum.commission ?? 0, oldest: row._min.paid_at,
             };
         })
-        .sort((a, b) => b.owed - a.owed);
+        .sort((a, b) => a.currency.localeCompare(b.currency) || b.owed - a.owed);
 }
 
-// El conductor entregó la comisión de todos sus viajes en efectivo pendientes hasta ahora
-export const settleCashCommission = async (adminId: number, idDriver: number) => {
-    const where = { id_driver_assigned: idDriver, payment_method: "CASH" as const, paid_at: { not: null }, commission_settled_at: null };
+// El conductor entregó la comisión de sus viajes en efectivo pendientes hasta ahora. Con currency, solo la de esa
+// moneda (un conductor que trabajó en dos países entrega cada moneda por separado)
+export const settleCashCommission = async (adminId: number, idDriver: number, currency?: string) => {
+    const where = { id_driver_assigned: idDriver, payment_method: "CASH" as const, paid_at: { not: null }, commission_settled_at: null, ...(currency ? { currency } : {}) };
     const pending = await prisma.clientRequests.aggregate({ where, _sum: { commission: true }, _count: { _all: true } });
     if (pending._count._all === 0) {
         throw new AppError("Este conductor no tiene comisiones pendientes", 409);
     }
-    const amount = Math.round(pending._sum.commission ?? 0);
+    const amount = pending._sum.commission ?? 0;
     // El registro dice cuánto en cada moneda: los pesos y los euros no se suman
     const byCurrency = await prisma.clientRequests.groupBy({ by: ["currency"], where, _sum: { commission: true } });
     const detail = byCurrency.map((row) => formatMoney(row._sum.commission ?? 0, row.currency, "es-CO")).join(" + ");
@@ -70,5 +72,5 @@ export const settleCashCommission = async (adminId: number, idDriver: number) =>
         await tx.clientRequests.updateMany({ where, data: { commission_settled_at: new Date() } });
         await logAdminAction(tx, adminId, "SETTLE_COMMISSION", "driver", idDriver, `${pending._count._all} viajes · ${detail}`);
     });
-    return { id_driver: idDriver, trips: pending._count._all, amount };
+    return { id_driver: idDriver, trips: pending._count._all, amount, currency: currency ?? null };
 }

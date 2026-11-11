@@ -132,8 +132,24 @@ model Currency {
   payments Payment[]
   rates CurrencyRate?
   vehicleRates CurrencyVehicleRate[]
+  exchangeRate ExchangeRate?
 
   @@map("currencies")
+}
+
+// Última tasa de cambio buena de cada moneda (Fase 9c): el respaldo cuando su fuente externa falla.
+// units_per_usd = unidades de la moneda por 1 dólar (la base común)
+model ExchangeRate {
+  currency_code String   @id @db.Char(3)
+  units_per_usd Float
+  // FRANKFURTER (Banco Central Europeo) o TRM (Banco de la República)
+  source        String   @db.VarChar(20)
+  rate_date     DateTime @db.Date
+  fetched_at    DateTime
+
+  currency Currency @relation(fields: [currency_code], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("exchange_rates")
 }
 
 // Tarifas base del precio sugerido en cada moneda: las usan todos los países de esa moneda que no tengan las suyas

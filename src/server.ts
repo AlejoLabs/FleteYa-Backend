@@ -10,6 +10,8 @@ import driverCarInfoRouter from "./routes/driver_car_info.routes.js";
 import paymentSimulatorRouter, { paymentReturnRouter } from "./routes/payment_simulator.routes.js";
 import adminRouter from "./routes/admin.routes.js";
 import countriesRouter from "./routes/countries.routes.js";
+import exchangeRatesRouter from "./routes/exchange_rates.routes.js";
+import { startExchangeRateRefresh } from "./services/exchange/index.js";
 import { errorHandler } from './middlewares/errorHandler.js';
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -34,6 +36,7 @@ app.use("/client-requests", clientRequestRouter);
 app.use("/driver-trip-offers", driverTripOfferRouter);
 app.use("/driver-car-info", driverCarInfoRouter);
 app.use("/countries", countriesRouter);
+app.use("/exchange-rates", exchangeRatesRouter);
 app.use("/payments/simulator", paymentSimulatorRouter);
 app.use("/payments/return", paymentReturnRouter);
 app.get("/", (req, res)=>{
@@ -63,6 +66,9 @@ const HOST = process.env.HOST || "localhost";
 server.listen(Number (PORT), HOST, ()=>{
     console.log(`Servidor corriendo EN http://${HOST}:${PORT}`);
 });
+
+// Tipo de cambio de referencia: consulta las dos fuentes al arrancar y cada 30 minutos (Fase 9c)
+startExchangeRateRefresh();
 
 // Vence las búsquedas sin conductor. Un fallo (por ejemplo, la BD caída un momento) se registra y se reintenta en la siguiente vuelta
 const EXPIRE_EVERY_MS = 30 * 1000;

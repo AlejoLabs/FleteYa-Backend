@@ -177,6 +177,15 @@ check("En Colombia la categoría C sola no existe: 400", coLicense.status === 40
 const moved = await call("PUT", `/users/upload/${frClient.data?.user?.id}`, frClient.data?.token, { phone: "3001112233", country_code: "CO" });
 check("Cambiar el indicativo en el perfil cambia el país", moved.data?.country_code === "CO", `${moved.status} ${moved.data?.country_code}`);
 
+// 9. Tipo de cambio de referencia (Fase 9c), con las fuentes reales. Las fallas de cada fuente se prueban
+// aparte, con fuentes de mentira, en exchange-rates.test.mts
+const live = await call("GET", "/exchange-rates", CLIENT.token);
+check("GET /exchange-rates responde con base USD", live.status === 200 && live.data?.base === "USD", String(live.status));
+check("Trae el peso colombiano (TRM) y el euro (BCE), frescos o de respaldo", live.data?.rates?.COP?.units_per_usd > 0 && live.data?.rates?.EUR?.units_per_usd > 0, JSON.stringify({ COP: live.data?.rates?.COP, EUR: live.data?.rates?.EUR }));
+check("Las 8 monedas tienen tasa", ["COP", "MXN", "USD", "EUR", "BRL", "AUD", "INR", "ZAR"].every((code) => live.data?.rates?.[code]?.units_per_usd > 0));
+check("Dice el estado de cada fuente (Frankfurter y TRM)", live.data?.sources?.map((s) => s.name).sort().join() === "FRANKFURTER,TRM");
+check("Tasas sin sesión: 401", (await call("GET", "/exchange-rates")).status === 401);
+
 // Limpieza: los fletes que quedaron buscando y las cuentas de prueba
 for (const id of toCancel) await cancel(id);
 dbHelper("delete", ...Object.values(emails), `x${emails.bad}`);

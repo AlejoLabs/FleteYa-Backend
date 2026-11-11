@@ -1,6 +1,6 @@
 // Chat del viaje, calificaciones reales y reportes de incidentes. Uso: npm test
 // Crea una cuenta @prueba.com para el "usuario ajeno" y la borra al final
-import { API, call, connectSocket, createReport, dbHelper, testClient, testDriver, TINY_JPEG, uploadPhoto, wait } from "./support/api.mjs";
+import { API, call, connectSocket, createReport, dbHelper, testClient, testDriver, TINY_JPEG, uploadPhoto, wait, payDeliveredInCash } from "./support/api.mjs";
 
 const { check, finish } = createReport();
 const CLIENT = await testClient();
@@ -129,4 +129,5 @@ dbHelper("age", late, 8);
 check("Ocho días después: 409", (await report(late, CLIENT.token, { kind: "DAMAGE", description: "Reporte de prueba tardío" })).status === 409);
 
 dbHelper("delete", STRANGER_EMAIL);
+await payDeliveredInCash(created, DRIVER.token);
 finish(`Fletes de prueba: ${created.join(", ")}`);

@@ -11,6 +11,16 @@ if (missing.length) {
 }
 
 export const API = `http://${process.env.HOST ?? "localhost"}:${process.env.PORT ?? 3000}`;
+
+// dbHelper usa execSync y bloquea el proceso unos segundos. Mientras tanto el servidor cierra la conexión que quedó
+// abierta (a los 5 s sin uso), pero fetch no se entera hasta que corre su temporizador, y la siguiente petición
+// salía por esa conexión ya cerrada (ECONNRESET). Dejar pasar un ciclo antes de cada petición basta para que fetch
+// descarte las conexiones vencidas y abra una nueva
+const nativeFetch = globalThis.fetch;
+globalThis.fetch = async (...args) => {
+    await new Promise((resolve) => setImmediate(resolve));
+    return nativeFetch(...args);
+};
 export const TEST_PASSWORD = process.env.TEST_PASSWORD;
 
 const BACKEND_ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -28,6 +38,12 @@ export const call = async (method, path, token, body) => {
     try { data = await res.json(); } catch {}
     return { status: res.status, data };
 };
+
+// Limpieza al final de una suite: el conductor confirma el efectivo de los fletes que la prueba dejó entregados.
+// Si no, cada corrida deja fletes "entregados sin pagar" que siguen en Próximos fletes del cliente de prueba
+// (la lista muestra hasta 50) y terminan tapando los de las pruebas siguientes. A los demás fletes no les hace nada
+export const payDeliveredInCash = (ids, driverToken) =>
+    Promise.all(ids.map((id) => call("POST", `/client-requests/${id}/payment/cash`, driverToken).catch(() => null)));
 
 // Inicia sesión y devuelve el id y el token de la cuenta
 export const login = async (email, password = TEST_PASSWORD) => {

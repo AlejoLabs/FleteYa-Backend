@@ -47,7 +47,10 @@ check("La cookie del panel no sirve como token de la app: 401",
 // 2. Estadísticas
 const stats = await admin("GET", "/stats?days=30");
 check("Estadísticas con datos reales", stats.status === 200 && stats.data.users.clients > 0 && Array.isArray(stats.data.trips.per_day)
-    && typeof stats.data.money.commission === "number", `${stats.status}`);
+    && Array.isArray(stats.data.money.by_currency), `${stats.status}`);
+check("El dinero va por moneda, con un total aproximado en dólares aparte", stats.data?.money?.by_currency?.every((row) => typeof row.currency === "string" && typeof row.commission === "number")
+    && "commission" in (stats.data?.money?.approx_usd ?? {}), JSON.stringify(stats.data?.money?.approx_usd));
+check("El inicio dice el estado de las dos fuentes del tipo de cambio", stats.data?.money?.exchange_sources?.length === 2);
 
 // 3. Verificación de conductores: se quita la aprobación automática
 const nextYear = new Date(Date.now() + 365 * 86400000).toISOString();

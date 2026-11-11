@@ -87,7 +87,7 @@ export const cancelTrip = json((req) => trips.cancelTrip(getAdminId(req), id(req
 
 export const listPayments = json((req) => payments.listPayments(pageOf(req.query.page)));
 export const listCommissions = json(() => payments.listCashCommissions());
-export const settleCommission = json((req) => payments.settleCashCommission(getAdminId(req), id(req)));
+export const settleCommission = json((req) => payments.settleCashCommission(getAdminId(req), id(req), typeof req.query.currency === "string" && /^[A-Z]{3}$/.test(req.query.currency) ? req.query.currency : undefined));
 
 export const listIncidents = json((req) => incidents.listIncidents(oneOf(req.query.status, ["OPEN", "IN_REVIEW", "RESOLVED"] as const)));
 export const getIncident = json((req) => incidents.getIncident(id(req)));

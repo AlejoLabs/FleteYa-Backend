@@ -1,6 +1,6 @@
 // Fotos del flete y del vehículo, prueba de entrega con código, documentos y token de notificaciones. Uso: npm test
 // Crea una cuenta @prueba.com para el "usuario ajeno" y la borra al final
-import { API, call, createReport, dbHelper, testClient, testDriver, uploadPhoto } from "./support/api.mjs";
+import { API, call, createReport, dbHelper, testClient, testDriver, uploadPhoto, payDeliveredInCash } from "./support/api.mjs";
 
 const { check, finish } = createReport();
 const CLIENT = await testClient();
@@ -120,4 +120,5 @@ check("Al cerrar sesión se borra el token", (await call("PUT", "/users/me/notif
 
 // Limpieza: los viajes de prueba quedaron terminados; se borra la cuenta ajena
 dbHelper("delete", STRANGER_EMAIL);
+await payDeliveredInCash(created, DRIVER.token);
 finish(`Fletes de prueba: ${created.join(", ")}`);

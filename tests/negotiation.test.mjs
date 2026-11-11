@@ -1,5 +1,5 @@
 // Negociación del flete: ofertas, contraofertas, precio, "No me interesa", estados, cancelación y vencimiento. Uso: npm test
-import { call, connectSocket, createReport, dbHelper, testClient, testDriver, uploadPhoto, wait } from "./support/api.mjs";
+import { call, connectSocket, createReport, dbHelper, testClient, testDriver, uploadPhoto, wait, payDeliveredInCash } from "./support/api.mjs";
 
 const { check, finish } = createReport();
 const CLIENT = await testClient();
@@ -132,4 +132,5 @@ for (const id of created) await call("PUT", `/client-requests/${id}/cancel`, CLI
 clientSock.close();
 driverSock.close();
 
+await payDeliveredInCash(created, DRIVER.token);
 finish(`Fletes de prueba: ${created.join(", ")}`);

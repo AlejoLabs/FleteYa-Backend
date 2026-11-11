@@ -51,8 +51,22 @@ export const api = async (method, path, body) => {
 
 // ---------- Formatos (como en la app: pesos colombianos y fechas en hora de Colombia) ----------
 
-const cop = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-export const money = (value) => cop.format(Math.round(Number(value ?? 0)));
+// Un monto en su moneda, con el formato de Colombia: "$ 25.000" (COP), "EUR 30,50", "US$ 27". Los enteros van sin
+// ",00". Sin moneda (datos de antes de la Fase 9b) es en pesos colombianos. El panel nunca suma monedas distintas
+const formats = new Map();
+const formatFor = (currency, decimals) => {
+  const key = `${currency}-${decimals}`;
+  if (!formats.has(key)) formats.set(key, new Intl.NumberFormat("es-CO", { style: "currency", currency, minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
+  return formats.get(key);
+};
+export const money = (value, currency = "COP") => {
+  const amount = Math.round(Number(value ?? 0) * 100) / 100;
+  const whole = Number.isInteger(amount) || currency === "COP";
+  return formatFor(currency, whole ? 0 : 2).format(currency === "COP" ? Math.round(amount) : amount);
+};
+// Varios montos de monedas distintas, uno al lado del otro: "$ 120.000 · EUR 45,30"
+export const moneyList = (rows, field) =>
+  rows.length ? rows.map((row) => money(row[field], row.currency)).join(" · ") : money(0);
 export const number = (value) => new Intl.NumberFormat("es-CO").format(Number(value ?? 0));
 const dateFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Bogota" });
 const dayFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", timeZone: "UTC" });

@@ -118,7 +118,7 @@ export const renderUser = async (container, id) => {
         { label: "Id", num: true, value: (t) => t.id },
         { label: "Como", value: (t) => (t.role === "CLIENT" ? "Cliente" : "Conductor") },
         { label: "Ruta", value: (t) => `${t.pickup_description} → ${t.destination_description}` },
-        { label: "Valor", num: true, value: (t) => money(t.fare_assigned ?? t.fare_offered) },
+        { label: "Valor", num: true, value: (t) => money(t.fare_assigned ?? t.fare_offered, t.currency) },
         { label: "Estado", value: (t) => pill(TRIP_STATUS, t.status) },
         { label: "Fecha", value: (t) => date(t.created_at) },
       ], u.recent_trips, { onRow: (t) => { location.hash = `#/viajes/${t.id}`; }, empty: "Todavía no tiene viajes" })),
