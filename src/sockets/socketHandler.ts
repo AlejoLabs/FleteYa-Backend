@@ -5,6 +5,7 @@ import { verifyToken } from "../config/jwt.js";
 import { assertActiveAccount, hasRole } from "../utils/authorization.js";
 import prisma from "../database/prismaClient.js";
 import { driverBlockReason, ELIGIBILITY_SELECT } from "../services/driver_eligibility.service.js";
+import { allowedOrigins } from "../utils/corsOrigins.js";
 
 let io: Server;
 
@@ -29,8 +30,9 @@ const denySocket = (socket: Socket, event: string, detail: string) => {
 
 export const initializeSocket = (server: HttpServer) => {
     io = new Server(server, {
+        // La app nativa no pasa por CORS; solo aplica a páginas web de otro dominio
         cors: {
-            origin: "*",
+            origin: allowedOrigins(),
             methods: ["GET", "POST"]
         }
     });

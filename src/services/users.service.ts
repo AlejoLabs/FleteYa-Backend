@@ -1,5 +1,5 @@
 import prisma from "../database/prismaClient.js";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import type { createUserInput, updateUserInput } from "../validators/user.validator.js";
 import { AppError } from "../utils/App.Error.js";
 import { normalizeLanguage, type Language } from "../i18n/languages.js";

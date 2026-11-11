@@ -13,6 +13,7 @@ import countriesRouter from "./routes/countries.routes.js";
 import exchangeRatesRouter from "./routes/exchange_rates.routes.js";
 import { startExchangeRateRefresh } from "./services/exchange/index.js";
 import { errorHandler } from './middlewares/errorHandler.js';
+import { allowedOrigins } from './utils/corsOrigins.js';
 import path from "path";
 import { fileURLToPath } from 'url';
 import {initializeSocket} from "./sockets/socketHandler.js";
@@ -25,7 +26,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 
-app.use(cors());
+// No decir qué servidor es (Express) y cabeceras de seguridad básicas en todas las respuestas
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    next();
+});
+app.use(cors({ origin: allowedOrigins() }));
 app.use(express.json());
 
 

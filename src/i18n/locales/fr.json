@@ -163,6 +163,8 @@
     "TOO_MANY_FILES": "Vous avez joint plus de photos que le nombre autorisé",
     "UPLOAD_FAILED": "Le fichier n'a pas pu être téléversé",
     "INTERNAL_ERROR": "Une erreur s'est produite sur le serveur. Réessayez",
+
+    "MALFORMED_REQUEST": "La requête n'a pas un format valide",
     "LANGUAGE_INVALID": "La langue n'est pas valide",
     "FARE_MIN": "{{field}} doit être d'au moins {{min}}",
     "FARE_MAX": "{{field}} ne peut pas dépasser {{max}}",

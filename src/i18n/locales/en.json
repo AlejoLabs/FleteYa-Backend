@@ -163,6 +163,8 @@
     "TOO_MANY_FILES": "You attached more photos than allowed",
     "UPLOAD_FAILED": "The file could not be uploaded",
     "INTERNAL_ERROR": "Something went wrong on the server. Try again",
+
+    "MALFORMED_REQUEST": "The request is not in a valid format",
     "LANGUAGE_INVALID": "The language is not valid",
     "FARE_MIN": "{{field}} must be at least {{min}}",
     "FARE_MAX": "{{field}} cannot exceed {{max}}",
