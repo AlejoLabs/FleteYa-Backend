@@ -14,7 +14,7 @@ export const listPayments = async (page: number) => {
         prisma.payment.findMany({
             orderBy: { id: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE,
             select: {
-                id: true, reference: true, method: true, amount: true, currency: true, status: true, wompi_method: true, created_at: true,
+                id: true, reference: true, method: true, amount: true, currency: true, status: true, wompi_method: true, created_at: true, refunded_at: true,
                 clientRequest: { select: { id: true, commission: true, client: { select: { name: true, lastname: true } } } },
             },
         }),
@@ -23,7 +23,7 @@ export const listPayments = async (page: number) => {
         total, page, page_size: PAGE_SIZE,
         items: rows.map((row) => ({
             id: row.id, reference: row.reference, method: row.method, amount: row.amount, currency: row.currency, status: row.status,
-            channel: row.wompi_method, created_at: row.created_at,
+            channel: row.wompi_method, created_at: row.created_at, refunded_at: row.refunded_at,
             id_client_request: row.clientRequest.id, commission: row.clientRequest.commission,
             client: `${row.clientRequest.client.name} ${row.clientRequest.client.lastname}`.trim(),
         })),

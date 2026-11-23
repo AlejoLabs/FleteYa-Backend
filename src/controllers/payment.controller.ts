@@ -18,9 +18,17 @@ export const changePaymentMethod = async (req: Request, res: Response, next: Nex
     }
 }
 
+export const setTip = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        return res.status(200).json(await paymentService.setTip(getUserId(req), Number(req.params.id), req.body.tip));
+    } catch (err) {
+        next(err);
+    }
+}
+
 export const startOnlinePayment = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        return res.status(201).json(await paymentService.startWompiPayment(getUserId(req), Number(req.params.id)));
+        return res.status(201).json(await paymentService.startWompiPayment(getUserId(req), Number(req.params.id), req.body?.tip));
     } catch (err) {
         next(err);
     }
@@ -36,7 +44,7 @@ export const verifyOnlinePayments = async (req: Request, res: Response, next: Ne
 
 export const confirmCashPayment = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        return res.status(200).json(await paymentService.confirmCashPayment(getUserId(req), Number(req.params.id)));
+        return res.status(200).json(await paymentService.confirmCashPayment(getUserId(req), Number(req.params.id), req.body?.tip));
     } catch (err) {
         next(err);
     }

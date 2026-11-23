@@ -4,6 +4,8 @@
 //   google-user <correo>     crea una cuenta "de Google" sin contraseña
 //   age <id> <días>          hace que una solicitud parezca terminada hace N días
 //   delete <correo>...       borra cuentas de prueba y su vehículo
+//   set-tax <id> <tasa> <importe>   cambia el impuesto fijado en un flete pagado (prueba que el comprobante lee lo guardado)
+//   fake-online-paid <id>           deja un flete con un pago por la app ya aprobado (para probar el reembolso al cancelar)
 //   grant-admin <correo>     da el rol ADMIN a una cuenta de prueba
 //   delete-anonymized <id>   borra una cuenta de prueba que el panel anonimizó (su correo ya no es @prueba.com)
 import crypto from "crypto";
@@ -34,6 +36,12 @@ if (command === "expire") {
         data: { name: "Prueba", lastname: "Google", email: args[0], phone: "", password: null, google_id: `test-${Date.now()}`, email_verified: true }
     });
     await prisma.userHasRole.create({ data: { id_user: user.id, id_rol: "CLIENT" } });
+} else if (command === "set-tax") {
+    await prisma.clientRequests.update({ where: { id: Number(args[0]) }, data: { tax_rate: Number(args[1]), tax_amount: Number(args[2]) } });
+} else if (command === "fake-online-paid") {
+    const trip = await prisma.clientRequests.findUniqueOrThrow({ where: { id: Number(args[0]) } });
+    await prisma.payment.create({ data: { id_client_request: trip.id, reference: `FY-${trip.id}-prueba-${Date.now()}`, method: "WOMPI", amount: trip.fare_assigned ?? 0, currency: trip.currency, status: "APPROVED" } });
+    await prisma.clientRequests.update({ where: { id: trip.id }, data: { paid_at: new Date(), payment_method: "WOMPI" } });
 } else if (command === "delete") {
     // Solo cuentas creadas por las pruebas: nunca borra un correo que no sea de @prueba.com
     const emails = args.filter((email) => email.endsWith("@prueba.com"));

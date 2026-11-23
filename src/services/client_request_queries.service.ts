@@ -24,7 +24,7 @@ export const getMyActiveTrips = async (userId: number) => {
         },
         select: {
             id: true, id_client: true, id_driver_assigned: true, status: true,
-            fare_offered: true, fare_assigned: true, currency: true, country_code: true, payment_method: true, paid_at: true,
+            fare_offered: true, fare_assigned: true, currency: true, country_code: true, payment_method: true, paid_at: true, tip: true,
             pickup_description: true, destination_description: true,
             cargo_category: true, cargo_description: true, required_vehicle: true,
             scheduled_at: true, expires_at: true, created_at: true
@@ -206,6 +206,7 @@ export const getByClientRequest = async (id: number, viewerId: number) => {
                 CR.fare_assigned,
                 CR.payment_method,
                 CR.commission,
+                CR.tip,
                 CR.commission_rate,
                 CR.paid_at,
                 CR.declared_value,
@@ -321,6 +322,7 @@ export const getByClientAssigned = async (id_client: number) => {
             CR.fare_assigned,
             CR.payment_method,
             CR.commission,
+            CR.tip,
             CR.paid_at,
             CR.pickup_description,
             CR.destination_description,
@@ -400,6 +402,7 @@ export const getByDriverAssigned = async (id_driver_assigned: number) => {
             CR.fare_assigned,
             CR.payment_method,
             CR.commission,
+            CR.tip,
             CR.paid_at,
             CR.pickup_description,
             CR.destination_description,
