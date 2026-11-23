@@ -22,6 +22,19 @@ export interface CurrencyInfo {
     max_fare: number;
 }
 
+// Impuesto, comprobante y propina del país (tabla country_tax_profiles). tax_rate es una fracción (0.19 = 19 %)
+export interface TaxProfile {
+    tax_name: string;
+    tax_rate: number;
+    receipt_type: string;
+    tax_id_label: string;
+    tip_mode: "NONE" | "OPTIONAL" | "SUGGESTED";
+    tip_suggestions: number[];
+}
+
+// Un país sin fila en country_tax_profiles (uno agregado a mano sin su perfil) no cobra impuesto ni pide propina
+const NO_TAX: TaxProfile = { tax_name: "", tax_rate: 0, receipt_type: "GENERIC", tax_id_label: "", tip_mode: "NONE", tip_suggestions: [] };
+
 export interface CountryInfo {
     code: string;
     names: Record<string, string>;
@@ -31,16 +44,20 @@ export interface CountryInfo {
     phone_pattern: string;
     phone_example: string;
     plate_pattern: string | null;
+    tax: TaxProfile;
 }
 
 let cache: { countries: Map<string, CountryInfo>; currencies: Map<string, CurrencyInfo>; loaded_at: number } | null = null;
 
 const load = async () => {
     if (cache && Date.now() - cache.loaded_at < CACHE_MS) return cache;
-    const [currencies, countries] = await Promise.all([
+    const [currencies, countries, taxProfiles] = await Promise.all([
         prisma.currency.findMany(),
         prisma.country.findMany({ orderBy: { code: "asc" } }),
+        prisma.countryTaxProfile.findMany(),
     ]);
+    const taxMap = new Map(taxProfiles.map(({ country_code, tip_suggestions, ...profile }) =>
+        [country_code, { ...profile, tip_suggestions: Array.isArray(tip_suggestions) ? tip_suggestions as number[] : [] }]));
     const currencyMap = new Map(currencies.map((currency) => [currency.code, currency]));
     cache = {
         currencies: currencyMap,
@@ -53,6 +70,7 @@ const load = async () => {
             phone_pattern: country.phone_pattern,
             phone_example: country.phone_example,
             plate_pattern: country.plate_pattern,
+            tax: taxMap.get(country.code) ?? NO_TAX,
         }])),
         loaded_at: Date.now(),
     };
@@ -158,4 +176,10 @@ export const publicCountry = (country: CountryInfo) => ({
     phone_pattern: country.phone_pattern,
     phone_example: country.phone_example,
     plate_pattern: country.plate_pattern,
+    tax_name: country.tax.tax_name,
+    tax_rate: country.tax.tax_rate,
+    receipt_type: country.tax.receipt_type,
+    tax_id_label: country.tax.tax_id_label,
+    tip_mode: country.tax.tip_mode,
+    tip_suggestions: country.tax.tip_suggestions,
 });

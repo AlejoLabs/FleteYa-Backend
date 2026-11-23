@@ -10,6 +10,7 @@ import { countTripPhotos } from "./trip_photo.service.js";
 import { pushAmount, sendPush } from "../utils/push.js";
 import { getCountry, getCurrency, ratesFor } from "./countries.service.js";
 import { roundMoney } from "../utils/money.js";
+import { notifyRefund, refundTripPayments } from "./refund.service.js";
 
 // Ciclo del viaje después de buscar: asignar conductor, avanzar estados, entregar, cancelar y calificar
 
@@ -238,7 +239,7 @@ export const cancelClientRequest = async (userId: number, id: number, data: Canc
         throw new AppError("TRIP_NOT_CANCELABLE", 409);
     }
 
-    await prisma.$transaction(async (tx) => {
+    const refund = await prisma.$transaction(async (tx) => {
         const result = await tx.clientRequests.updateMany({
             where: { id, status: trip.status },
             data: { status: "CANCELED", canceled_by: userId, cancel_reason: data.reason }
@@ -250,7 +251,10 @@ export const cancelClientRequest = async (userId: number, id: number, data: Canc
             where: { id_client_request: id, status: "PENDING" },
             data: { status: "EXPIRED" }
         });
+        // Si el cliente ya había pagado por la app, el pago queda reembolsado y la comisión no se cobra
+        return refundTripPayments(tx, id);
     });
+    if (refund) notifyRefund(trip.id_client, id, refund);
 
     const payload = { id_client_request: id, canceled_by: isClient ? "CLIENT" : "DRIVER", reason: data.reason };
     if (trip.status === "CREATED") {

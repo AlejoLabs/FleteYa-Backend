@@ -4,6 +4,7 @@ import { notifyDrivers, notifyUser } from "../../sockets/socketHandler.js";
 import { sendPush } from "../../utils/push.js";
 import type { ClientRequestStatus } from "../../generated/prisma/enums.js";
 import { logAdminAction } from "./admin_audit.service.js";
+import { notifyRefund, refundTripPayments } from "../refund.service.js";
 
 // Viajes en el panel: todos con su estado, el detalle de cada uno y cerrar los que quedaron atascados
 
@@ -56,14 +57,14 @@ export const getTripDetail = async (id: number) => {
         where: { id },
         select: {
             id: true, status: true, fare_offered: true, fare_assigned: true, currency: true, country_code: true, commission: true, commission_rate: true,
-            payment_method: true, paid_at: true, commission_settled_at: true, declared_value: true,
+            payment_method: true, paid_at: true, refunded_at: true, tip: true, tax_name: true, tax_rate: true, tax_amount: true, commission_settled_at: true, declared_value: true,
             pickup_description: true, destination_description: true, cargo_description: true, cargo_category: true,
             required_vehicle: true, weight_kg: true, packages: true, helpers: true, scheduled_at: true,
             canceled_by: true, cancel_reason: true, client_rating: true, driver_rating: true,
             delivery_code_attempts: true, created_at: true, update_at: true,
             client: person, driver: person,
             driverTripOffers: { orderBy: { id: "asc" }, select: { id: true, id_driver: true, fare_offered: true, status: true, created_at: true, driver: { select: { name: true, lastname: true } } } },
-            payments: { orderBy: { id: "asc" }, select: { id: true, reference: true, method: true, amount: true, currency: true, status: true, wompi_method: true, created_at: true } },
+            payments: { orderBy: { id: "asc" }, select: { id: true, reference: true, method: true, amount: true, currency: true, status: true, wompi_method: true, created_at: true, refunded_at: true } },
             incidents: { select: { id: true, kind: true, status: true, created_at: true } },
             _count: { select: { messages: true, photos: true } },
         },
@@ -90,7 +91,7 @@ export const cancelTrip = async (adminId: number, id: number, reason: string) =>
     if (!OPEN.includes(trip.status)) {
         throw new AppError("Este viaje ya está cerrado", 409);
     }
-    await prisma.$transaction(async (tx) => {
+    const refund = await prisma.$transaction(async (tx) => {
         const result = await tx.clientRequests.updateMany({
             where: { id, status: trip.status },
             data: { status: "CANCELED", canceled_by: adminId, cancel_reason: `FleteYa: ${reason}` },
@@ -99,8 +100,11 @@ export const cancelTrip = async (adminId: number, id: number, reason: string) =>
             throw new AppError("El viaje cambió mientras tanto; vuelve a cargarlo", 409);
         }
         await tx.driverTripOffer.updateMany({ where: { id_client_request: id, status: "PENDING" }, data: { status: "EXPIRED" } });
-        await logAdminAction(tx, adminId, "CANCEL_TRIP", "trip", id, reason);
+        const refunded = await refundTripPayments(tx, id);
+        await logAdminAction(tx, adminId, "CANCEL_TRIP", "trip", id, refunded ? `${reason} (pago reembolsado)` : reason);
+        return refunded;
     });
+    if (refund) notifyRefund(trip.id_client, id, refund);
 
     const payload = { id_client_request: id, canceled_by: "ADMIN", reason };
     if (trip.status === "CREATED") notifyDrivers("client_request_removed", { id_client_request: id });

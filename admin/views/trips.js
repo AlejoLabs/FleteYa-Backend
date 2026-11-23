@@ -97,6 +97,9 @@ export const renderTrip = async (container, id) => {
         ["Le queda al conductor", t.commission ? money(fare - t.commission, t.currency) : "—"],
         ["Forma de pago", PAYMENT_METHOD[t.payment_method]],
         ["Pagado", t.paid_at ? date(t.paid_at) : "No"],
+        t.refunded_at ? ["Reembolsado", date(t.refunded_at)] : null,
+        t.tip ? ["Propina (100 % del conductor)", money(t.tip, t.currency)] : null,
+        t.tax_amount !== null && t.tax_rate !== null ? [t.tax_name ?? "Impuesto", `${money(t.tax_amount, t.currency)} (${percent(t.tax_rate)}, sobre la comisión)`] : null,
         t.payment_method === "CASH" && t.paid_at ? ["Comisión liquidada", t.commission_settled_at ? date(t.commission_settled_at) : "Pendiente"] : null,
       ])),
     ),
@@ -116,6 +119,7 @@ export const renderTrip = async (container, id) => {
         { label: "Monto", num: true, value: (p) => money(p.amount, p.currency) },
         { label: "Estado", value: (p) => pill(PAYMENT_STATUS, p.status) },
         { label: "Fecha", value: (p) => date(p.created_at) },
+        { label: "Reembolsado", value: (p) => (p.refunded_at ? date(p.refunded_at) : "—") },
       ], t.payments)) : null,
 
     t.incidents.length ? h("section", { class: "stack" }, h("h2", {}, "Incidentes"),

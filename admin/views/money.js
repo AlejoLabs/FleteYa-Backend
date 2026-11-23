@@ -50,6 +50,7 @@ export const renderMoney = async (container) => {
         { label: "Comisión", num: true, value: (p) => (p.commission ? money(p.commission, p.currency) : "—") },
         { label: "Estado", value: (p) => pill(PAYMENT_STATUS, p.status) },
         { label: "Fecha", value: (p) => date(p.created_at) },
+        { label: "Reembolsado", value: (p) => (p.refunded_at ? date(p.refunded_at) : "—") },
       ], payments.items, { empty: "Todavía no hay pagos por la app" }),
       pager(payments, (next) => { page = next; renderMoney(container); })),
   );

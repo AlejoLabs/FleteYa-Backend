@@ -73,6 +73,11 @@ export const paymentMethodSchema = z.object({
     payment_method: z.enum(["CASH", "WOMPI"], {message: "PAYMENT_METHOD_INVALID"}),
 });
 
+// Propina opcional: >= 0. El máximo y si el país la permite se validan con el perfil del país (checkTip)
+const tipField = z.number({message: "TIP_INVALID"}).min(0, {message: "TIP_INVALID"}).max(1e9, {message: "TIP_TOO_HIGH"});
+export const tipSchema = z.object({ tip: tipField });
+export const payWithTipSchema = z.object({ tip: tipField.optional() }).optional().default({});
+
 export const cancelClientRequestSchema = z.object({
     reason: z.string().trim().min(3, {message: "CANCEL_REASON_REQUIRED"}).max(255, {message: "REASON_MAX_255"}),
 });

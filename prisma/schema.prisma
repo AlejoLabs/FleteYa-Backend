@@ -139,6 +139,32 @@ model Currency {
 
 // Última tasa de cambio buena de cada moneda (Fase 9c): el respaldo cuando su fuente externa falla.
 // units_per_usd = unidades de la moneda por 1 dólar (la base común)
+// Impuesto, comprobante y propina de cada país (Fase 11). Se agrega un país con una fila; sin código por país.
+// tax_rate es una fracción (0.19 = 19 %) y se cobra sobre la comisión de FleteYa, no sobre el flete
+model CountryTaxProfile {
+  country_code String @id @db.Char(2)
+  tax_name String @db.VarChar(30)
+  tax_rate Float
+  // Clave del tipo de comprobante: la app la traduce (receipt.types.<clave>)
+  receipt_type String @db.VarChar(40)
+  // Cómo se llama el identificador fiscal en ese país (NIT, EIN, SIRET...)
+  tax_id_label String @db.VarChar(40)
+  tip_mode TipMode @default(OPTIONAL)
+  // Porcentajes de los botones cuando tip_mode es SUGGESTED, por ejemplo [15, 18, 20]
+  tip_suggestions Json?
+
+  country Country @relation(fields: [country_code], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("country_tax_profiles")
+}
+
+// NONE: no se pide propina. OPTIONAL: campo libre. SUGGESTED: botones con porcentajes sugeridos
+enum TipMode {
+  NONE
+  OPTIONAL
+  SUGGESTED
+}
+
 model ExchangeRate {
   currency_code String   @id @db.Char(3)
   units_per_usd Float
@@ -201,6 +227,7 @@ model Country {
 
   currency Currency @relation(fields: [currency_code], references: [code], onDelete: Restrict, onUpdate: Cascade)
   rates CountryRate?
+  taxProfile CountryTaxProfile?
   vehicleRates CountryVehicleRate[]
   users User[]
   clientRequests ClientRequests[]
@@ -306,6 +333,17 @@ model ClientRequests {
   // Viaje en efectivo: el conductor se quedó con todo y le debe la comisión a FleteYa hasta que el admin la liquida.
   // En los pagos por la app la comisión se retiene sola
   commission_settled_at DateTime?
+  // Propina del cliente: va 100 % al conductor, no paga comisión ni impuesto y se suma a lo que paga el cliente.
+  // Antes de pagar es la propina elegida; al pagar queda fija
+  tip Float @default(0)
+  // Impuesto sobre la comisión de FleteYa, fijado al pagar con el perfil del país de ese momento: si luego cambian
+  // las tasas, el comprobante no cambia. null = viaje pagado antes de esta fase
+  tax_name String? @db.VarChar(30)
+  tax_rate Float?
+  tax_amount Float?
+  receipt_type String? @db.VarChar(40)
+  // Se devolvió el pago por la app de un flete cancelado: queda sin pagar y sin comisión
+  refunded_at DateTime?
   // Valor aproximado de la carga que declara el cliente. Informativo, base para un seguro futuro
   declared_value Float?
 
@@ -375,6 +413,8 @@ enum PaymentStatus {
   DECLINED
   VOIDED
   ERROR
+  // Fase 11: el dinero se devolvió al cliente (flete cancelado o cobro de más)
+  REFUNDED
 }
 
 // Cada intento de pago de un viaje. Un pago rechazado deja su fila y el cliente puede intentar otra vez con otra referencia
@@ -391,6 +431,10 @@ model Payment {
   wompi_transaction_id String? @db.VarChar(64)
   // NEQUI, CARD, PSE, BANCOLOMBIA_TRANSFER... según lo que eligió el cliente en el checkout
   wompi_method String? @db.VarChar(40)
+  // Propina incluida en amount (fijada al abrir el pago; el monto cobrado es valor acordado + propina)
+  tip Float @default(0)
+  // Cuándo se devolvió el dinero (status REFUNDED)
+  refunded_at DateTime?
   created_at DateTime @default(now())
   update_at DateTime @updatedAt
 

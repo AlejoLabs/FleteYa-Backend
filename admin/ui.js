@@ -72,7 +72,7 @@ const dateFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short
 const dayFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", timeZone: "UTC" });
 export const date = (value) => (value ? dateFmt.format(new Date(value)) : "—");
 export const day = (value) => (value ? dayFmt.format(new Date(value)) : "—");
-export const percent = (fraction) => `${(Number(fraction) * 100).toLocaleString("es-CO", { maximumFractionDigits: 1 })} %`;
+export const percent = (fraction) => `${(Number(fraction) * 100).toLocaleString("es-CO", { maximumFractionDigits: 3 })} %`;
 
 export const VEHICLES = { CARRY: "Carry", ESTACAS: "Estacas", FURGON: "Furgón", CAMION: "Camión" };
 export const ROLES = { CLIENT: "Cliente", DRIVER: "Conductor", ADMIN: "Admin" };
@@ -83,7 +83,7 @@ export const TRIP_STATUS = {
 };
 export const APPROVAL = { PENDING: ["En revisión", "warning"], APPROVED: ["Aprobado", "success"], REJECTED: ["Rechazado", "danger"] };
 export const ACCOUNT = { ACTIVE: ["Activa", "success"], SUSPENDED: ["Suspendida", "danger"] };
-export const PAYMENT_STATUS = { PENDING: ["Pendiente", "warning"], APPROVED: ["Aprobado", "success"], DECLINED: ["Rechazado", "danger"], VOIDED: ["Anulado", "neutral"], ERROR: ["Error", "danger"] };
+export const PAYMENT_STATUS = { PENDING: ["Pendiente", "warning"], APPROVED: ["Aprobado", "success"], DECLINED: ["Rechazado", "danger"], VOIDED: ["Anulado", "neutral"], REFUNDED: ["Reembolsado", "neutral"], ERROR: ["Error", "danger"] };
 export const INCIDENT_STATUS = { OPEN: ["Abierto", "danger"], IN_REVIEW: ["En revisión", "warning"], RESOLVED: ["Resuelto", "success"] };
 export const INCIDENT_KIND = { DAMAGE: "Daño", LOSS: "Pérdida", DELAY: "Retraso", BEHAVIOR: "Comportamiento", OTHER: "Otro" };
 export const PAYMENT_METHOD = { CASH: "Efectivo", WOMPI: "Por la app" };
