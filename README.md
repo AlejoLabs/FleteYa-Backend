@@ -19,10 +19,11 @@ La app móvil está en [FleteYa-Frontend](https://github.com/AlejoLabs/FleteYa-F
   - Viajes, pagos y liquidación de comisiones en efectivo.
   - Incidentes y tarifas.
   - Registro de cada acción del admin.
+- **Varios países, monedas e idiomas:** 24 países en 8 monedas (COP, MXN, USD, EUR, BRL, AUD, INR, ZAR) y 6 idiomas (español, inglés, francés, italiano, portugués y alemán). Ver [Países, monedas e idiomas](#países-monedas-e-idiomas).
 
 ## Tecnologías
 
-Node.js, TypeScript, Express 5, Prisma 7 con MySQL o MariaDB, Socket.IO, JWT con bcryptjs, Zod, Multer, Nodemailer y Firebase Admin.
+Node.js, TypeScript, Express 5, Prisma 7 con MySQL o MariaDB (con tipos espaciales), Socket.IO, JWT con bcrypt, Zod, Multer, Nodemailer y Firebase Admin. Tipo de cambio con Frankfurter (BCE) y la TRM de datos.gov.co.
 
 ## Requisitos
 
@@ -77,7 +78,10 @@ La sesión del panel es aparte de la de la app:
 - Todo cambio exige además el encabezado `X-FleteYa-Admin`.
 - Cada acción queda en el registro de acciones del panel.
 
-El servidor queda en `http://HOST:PORT`. Para probar desde un emulador o un celular, `HOST` debe ser la IP de tu PC en la red Wi-Fi, no `localhost`.
+El servidor queda en `http://HOST:PORT`. Para probar desde un emulador o un celular hay dos formas:
+
+- **Por cable USB (recomendada):** deja `HOST=127.0.0.1` y en cada dispositivo corre `adb reverse tcp:3000 tcp:3000`. La app usa `http://localhost:3000` y no hace falta estar en la misma red Wi-Fi. El túnel se pierde si reinicias el emulador o desconectas el celular.
+- **Por Wi-Fi:** `HOST` debe ser la IP de tu PC en la red, no `localhost`.
 
 ## Variables de entorno
 
@@ -94,6 +98,7 @@ Todas están explicadas en [`.env.example`](.env.example).
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | Ruta al JSON de la cuenta de servicio de Firebase, para las notificaciones push |
 | `WOMPI_*` | Llaves de Wompi. Si están, se cobra con Wompi |
 | `PAYMENTS_SIMULATOR` | Si no hay llaves de Wompi y vale `true`, se usa la pasarela de prueba |
+| `CORS_ORIGINS` | Páginas web de otro dominio que pueden llamar a la API, separadas por coma. Vacío: ninguna (la app y el panel no lo necesitan) |
 | `TEST_*` | Cuentas para `npm test` |
 
 ## Lo que nunca se sube al repositorio
@@ -126,9 +131,42 @@ Para la tarjeta sirve cualquier fecha futura y cualquier CVC de 3 dígitos. Con 
 npm test
 ```
 
-Corren 8 suites contra el servidor encendido: seguridad, negociación, cuentas, fotos y entrega, chat con calificaciones e incidentes, pagos, vehículos y panel de administración.
+Corren 12 suites (457 pruebas) contra el servidor encendido: seguridad, negociación, cuentas, fotos y entrega, chat con calificaciones e incidentes, pagos, vehículos, panel de administración, idioma de la cuenta, traducciones, países y monedas, y tipo de cambio (incluida la caída de las dos fuentes).
 
-Antes de correrlas, en tu base local deben existir el cliente y el conductor de `TEST_CLIENT_EMAIL` y `TEST_DRIVER_EMAIL`. El conductor debe tener un vehículo de estacas.
+Antes de correrlas, en tu base local deben existir el cliente y el conductor de `TEST_CLIENT_EMAIL` y `TEST_DRIVER_EMAIL`. El conductor debe tener un vehículo de estacas. Usa una base de desarrollo, no la de una demostración: las pruebas crean fletes y cuentas `@prueba.com`.
+
+Para correrlas contra otro puerto (por ejemplo, un segundo servidor con otra base): `PORT=3300 npm test`.
+
+## Datos de prueba
+
+- **Datos base:** `npm run db:seed` crea los roles y las tarifas. Los 24 países, las 8 monedas, sus tarifas y las fronteras de cada país los cargan las migraciones (`npx prisma migrate deploy`).
+- **Cuentas de prueba:** las de `TEST_CLIENT_EMAIL` y `TEST_DRIVER_EMAIL` en el `.env`. Créalas desde la app o con `POST /auth/register` y `POST /auth/register-driver`, y aprueba al conductor desde el panel.
+- **Administrador:** `npm run admin:grant -- correo` sobre una cuenta que ya exista.
+- **Pagos:** los datos de la tabla de [Pagos de prueba](#pagos-de-prueba).
+- **Ubicaciones para probar las monedas** (latitud, longitud del punto de recogida):
+
+| Ciudad | Coordenadas | Moneda esperada |
+|---|---|---|
+| Bogotá | 4.6486, -74.0628 | COP |
+| Ciudad de México | 19.4294, -99.1617 | MXN |
+| São Paulo | -23.5614, -46.6559 | BRL |
+| Nueva York | 40.7484, -73.9857 | USD |
+| París | 48.8566, 2.3522 | EUR |
+| Múnich | 48.1374, 11.5755 | EUR |
+| Sídney | -33.8688, 151.2093 | AUD |
+| Tokio | 35.6812, 139.7671 | Ninguna: responde `COUNTRY_NOT_SUPPORTED` |
+
+En el emulador de Android la ubicación se cambia con `adb emu geo fix <longitud> <latitud>` (primero la longitud).
+
+## Países, monedas e idiomas
+
+Lo que cambia de un país a otro es dato, no código:
+
+- **Tablas:** `countries` (código, nombres en 6 idiomas, moneda, idioma por defecto, indicativo y patrón del celular, patrón de la placa y contorno geográfico), `currencies` (decimales, paso, mínimo y máximo del precio), `currency_rates` y `currency_vehicle_rates` (tarifas del precio sugerido y comisión) y `country_rates` (tarifas propias de un país, editables en el panel).
+- **País del flete:** al cotizar, el backend busca en qué país cae el punto de recogida con `ST_Contains` sobre las fronteras de [Natural Earth](https://www.naturalearthdata.com) (dominio público), generadas con `scripts/countries/build-areas.mjs`. Si no cae en ningún país habilitado, responde `COUNTRY_NOT_SUPPORTED`.
+- **Moneda:** el flete guarda la moneda de su país al crearse; ofertas, pago y comisión quedan en esa moneda.
+- **Tipo de cambio de referencia:** `GET /exchange-rates`, con Frankfurter (tasas del BCE) y la TRM del Banco de la República (datos.gov.co) para el peso colombiano. Si una fuente falla, se usa la última tasa guardada y se reintenta con espera creciente (5 min, 10, 20… hasta 1 hora). Nunca se cobra con esta tasa.
+- **Idiomas:** errores, notificaciones push y correos salen en el idioma de la cuenta (`users.language`), con los textos en `src/i18n/locales/`. Los errores viajan como clave (`key` y `params`) para que la app los traduzca.
 
 ## Scripts
 
@@ -175,7 +213,9 @@ Todas las rutas, salvo las de `/auth`, piden el encabezado `Authorization: Beare
 | `/driver-trip-offers` | Ofertar, rechazar y retirar ofertas |
 | `/driver-car-info` | Vehículo, capacidad, documentos y fotos del conductor |
 | `/drivers-position` | Posición de los conductores disponibles |
-| `/users` | Perfil, foto y token de notificaciones |
+| `/users` | Perfil, foto, idioma y token de notificaciones |
+| `/countries` | Países habilitados con su moneda, idioma e indicativo |
+| `/exchange-rates` | Tipo de cambio de referencia, con fuente y fecha |
 | `/payments` | Pasarela de prueba y regreso desde Wompi |
 | `/admin/api` | API del panel, con su propia sesión: estadísticas, usuarios, conductores, viajes, pagos, incidentes, tarifas y registro |
 
